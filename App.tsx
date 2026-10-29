@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {Alert, StatusBar, StyleSheet, View} from 'react-native';
 import {initialWindowMetrics, SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {TabBar, type TabItem} from './src/components/Catalog';
+import {LaunchIntro} from './src/components/LaunchIntro';
 import {EmptyState} from './src/components/States';
 import type {InstructorCourse, LessonType} from './src/data/instructor';
 import {LoginScreen, VerifyCodeScreen} from './src/screens/auth/AuthScreens';
@@ -75,13 +76,13 @@ function InstructorApp() {
   })();
 
   const showTabs = tabPages.includes(page);
-  return <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+  return <LaunchIntro><SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
     <StatusBar barStyle="dark-content" />
     <View style={styles.app}>
       {screen}
       {showTabs && <TabBar items={tabs} active={page as Tab} onSelect={nav} />}
     </View>
-  </SafeAreaView>;
+  </SafeAreaView></LaunchIntro>;
 }
 
 const styles = StyleSheet.create({

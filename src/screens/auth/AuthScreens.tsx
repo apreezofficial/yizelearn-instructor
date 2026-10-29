@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputInstance, type TextInputProps, View} from 'react-native';
+import {ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputInstance, type TextInputProps, View} from 'react-native';
 import {ApiError, auth} from '../../api/client';
 import {authApi} from '../../api/endpoints';
 import type {User} from '../../api/types';
@@ -45,7 +45,7 @@ export function LoginScreen({onBack, onSignUp, onSso, onSent}: LoginProps) {
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
     {onBack && <View style={styles.backRow}><RoundButton icon="back" onPress={onBack} label="Back" /></View>}
-    <View style={styles.logo}><Text style={styles.logoText}>y</Text></View>
+    <Image source={require('../../assets/brand/logo.png')} style={styles.logoImage} resizeMode="contain" accessibilityLabel="yizelearn" />
     <Text style={[styles.title, font]}>Welcome back</Text>
     <Text style={[styles.subtitle, font]}>Log in to keep learning</Text>
 
@@ -209,8 +209,7 @@ const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: colors.cream},
   content: {flexGrow: 1, paddingHorizontal: spacing.screen, paddingTop: 8, paddingBottom: 32},
   backRow: {alignItems: 'flex-start', marginBottom: 4},
-  logo: {alignSelf: 'center', width: 88, height: 88, borderRadius: 22, backgroundColor: colors.blue700, alignItems: 'center', justifyContent: 'center', marginTop: 12, marginBottom: 24},
-  logoText: {fontFamily: 'Charmonman-Regular', fontSize: 52, lineHeight: 70, color: colors.white, includeFontPadding: false},
+  logoImage: {width: 154, height: 48, alignSelf: 'center'},
   title: {fontSize: type.display - 2, color: colors.ink, fontWeight: '800', textAlign: 'center'},
   subtitle: {fontSize: type.label, color: colors.muted, textAlign: 'center', marginTop: 8, marginBottom: 28, lineHeight: 22},
   field: {marginBottom: 18},
