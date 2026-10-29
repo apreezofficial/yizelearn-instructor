@@ -1,4 +1,4 @@
-package com.cathedtech
+package com.yizelearn.instructor
 
 import com.facebook.react.BaseReactPackage
 import com.facebook.react.bridge.NativeModule

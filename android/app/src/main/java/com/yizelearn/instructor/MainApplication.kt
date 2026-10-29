@@ -1,4 +1,4 @@
-package com.cathedtech
+package com.yizelearn.instructor
 
 import android.app.Application
 import com.facebook.react.PackageList
