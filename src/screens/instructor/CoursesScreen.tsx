@@ -1,16 +1,46 @@
-import React, {useCallback, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
-import {coursesApi} from '../../api/endpoints';
-import {useApi} from '../../hooks/useApi';
-import {ListRow, PrimaryButton, ScreenHeader} from '../../components/Primitives';
-import {colors} from '../../theme/tokens';
+import React, {useMemo, useState} from 'react';
+import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Icon} from '../../components/Icon';
+import {EmptyState} from '../../components/States';
+import {myCourses, type CourseStatus, type InstructorCourse} from '../../data/instructor';
+import {colors, radius, spacing, type} from '../../theme/tokens';
+import {font, Pill, Segments, TabHeader, type Tone} from './shared';
 
-export function CoursesScreen({onSetup}: {onSetup: () => void}) {
-  const [filter, setFilter] = useState('All');
-  const load = useCallback(() => coursesApi.list(filter === 'All' ? undefined : {status: filter.toLowerCase()}), [filter]);
-  const api = useApi(load, false);
-  const courses = api.data?.data || [{id: '1', title: 'Data analysis in Excel', lessonsCount: 24, status: 'published'}, {id: '2', title: 'Financial modelling', lessonsCount: 18, status: 'draft'}, {id: '3', title: 'Business writing', lessonsCount: 12, status: 'review'}, {id: '4', title: 'Intro to Python', lessonsCount: 30, status: 'published'}];
-  return <ScrollView contentContainerStyle={styles.content}><ScreenHeader eyebrow="INSTRUCTOR" title="My courses" /><View style={styles.chips}>{['All', 'Published', 'Draft'].map(value => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.chip, filter === value && styles.active]}><Text style={[styles.chipText, filter === value && styles.activeText]}>{value}</Text></Pressable>)}</View>{courses.map(course => <ListRow key={course.id} title={course.title} detail={`${course.lessonsCount} lessons`} badge={course.status} onPress={onSetup} />)}<PrimaryButton label="+ Create course" onPress={onSetup} /><PrimaryButton label="Refresh course list" outline onPress={() => void api.refresh()} /></ScrollView>;
+type Filter = 'All' | 'Published' | 'Draft';
+const statusTone: Record<CourseStatus, Tone> = {Published: 'green', Draft: 'grey', 'In review': 'amber'};
+
+type Props = {onOpen: (course: InstructorCourse) => void; onNew: () => void; onNotifications: () => void};
+
+export function CoursesScreen({onOpen, onNew, onNotifications}: Props) {
+  const [filter, setFilter] = useState<Filter>('All');
+  const rows = useMemo(() => myCourses.filter(c => filter === 'All' || c.status === filter), [filter]);
+  return <View style={styles.screen}>
+    <TabHeader title="My courses" onBell={onNotifications} />
+    <Segments items={['All', 'Published', 'Draft'] as const} active={filter} onSelect={setFilter} />
+    <FlatList data={rows} keyExtractor={c => c.id} contentContainerStyle={styles.list}
+      ListEmptyComponent={<EmptyState title="No courses here" message="Courses you create will show in this list." />}
+      renderItem={({item}) => <Pressable onPress={() => onOpen(item)} style={({pressed}) => [styles.row, pressed && styles.pressed]} accessibilityRole="button">
+        <View style={styles.icon}><Icon name="book" size={20} color={colors.blue700} /></View>
+        <View style={styles.copy}>
+          <Text style={[styles.title, font]}>{item.title}</Text>
+          <Text style={[styles.meta, font]}>{item.lessons} lessons</Text>
+        </View>
+        <Pill label={item.status} tone={statusTone[item.status]} />
+      </Pressable>} />
+    <Pressable onPress={onNew} style={({pressed}) => [styles.fab, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="New course">
+      <Icon name="plus" size={26} color={colors.onSky} />
+    </Pressable>
+  </View>;
 }
-const styles = StyleSheet.create({content: {padding: 16, paddingBottom: 32}, chips: {flexDirection: 'row', gap: 8, marginBottom: 16}, chip: {borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.white}, active: {backgroundColor: colors.ink, borderColor: colors.ink}, chipText: {fontSize: 12, color: colors.ink}, activeText: {color: colors.white}});
 
+const styles = StyleSheet.create({
+  screen: {flex: 1, backgroundColor: colors.cream},
+  list: {paddingHorizontal: spacing.screen, paddingBottom: 100, flexGrow: 1},
+  row: {flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 14, marginBottom: 12},
+  icon: {width: 44, height: 44, borderRadius: 22, backgroundColor: colors.blue100, alignItems: 'center', justifyContent: 'center'},
+  copy: {flex: 1},
+  title: {fontSize: type.label, color: colors.ink, fontWeight: '800'},
+  meta: {fontSize: type.caption, color: colors.muted, marginTop: 4},
+  pressed: {opacity: 0.85},
+  fab: {position: 'absolute', right: spacing.screen, bottom: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center'},
+});
