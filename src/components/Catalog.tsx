@@ -1,7 +1,8 @@
-import React from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, {useEffect, useRef} from 'react';
+import {Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import type {Course} from '../api/types';
 import {formatNaira, formatNumber} from '../data/catalog';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {colors, fonts, radius, spacing, type} from '../theme/tokens';
 import {Icon, type IconName} from './Icon';
 
@@ -57,7 +58,21 @@ export function EnrolBar({price, onEnrol}: {price?: number; onEnrol: () => void}
 
 export type TabItem<T extends string> = {key: T; label: string; icon: IconName};
 export function TabBar<T extends string>({items, active, onSelect}: {items: TabItem<T>[]; active: T; onSelect: (key: T) => void}) {
-  return <View style={styles.tabBar}>{items.map(item => { const on = item.key === active; return <Pressable key={item.key} onPress={() => onSelect(item.key)} style={styles.tab} accessibilityRole="tab" accessibilityState={{selected: on}}><View style={[styles.tabIcon, on && styles.tabIconOn]}><Icon name={item.icon} size={24} color={on ? colors.blue700 : colors.muted} /></View><Text style={[styles.tabLabel, font, on && styles.tabLabelActive]}>{item.label}</Text></Pressable>; })}</View>;
+  // Half the home-indicator inset is enough clearance; the full inset left the labels floating.
+  const {bottom} = useSafeAreaInsets();
+  return <View style={[styles.tabBar, {paddingBottom: Math.max(6, bottom / 2)}]}>{items.map(item => <Tab key={item.key} item={item} on={item.key === active} onSelect={onSelect} />)}</View>;
+}
+
+function Tab<T extends string>({item, on, onSelect}: {item: TabItem<T>; on: boolean; onSelect: (key: T) => void}) {
+  const pill = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useEffect(() => { Animated.spring(pill, {toValue: on ? 1 : 0, friction: 7, tension: 140, useNativeDriver: true}).start(); }, [on, pill]);
+  return <Pressable onPress={() => onSelect(item.key)} style={styles.tab} accessibilityRole="tab" accessibilityState={{selected: on}}>
+    <View style={styles.tabIcon}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.tabIconOn, {opacity: pill, transform: [{scaleX: pill.interpolate({inputRange: [0, 1], outputRange: [0.4, 1]})}]}]} />
+      <Icon name={item.icon} size={21} strokeWidth={1.5} solid={on} color={on ? colors.blue700 : colors.muted} />
+    </View>
+    <Text style={[styles.tabLabel, font, on && styles.tabLabelActive]}>{item.label}</Text>
+  </Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -87,10 +102,11 @@ const styles = StyleSheet.create({
   enrolPrice: {fontSize: type.title, color: colors.ink, fontWeight: '800'},
   enrolButton: {flex: 1, height: spacing.button, borderRadius: radius.button, backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center'},
   enrolText: {fontSize: type.subheading, color: colors.onSky, fontWeight: '700'},
-  tabBar: {flexDirection: 'row', justifyContent: 'space-around', backgroundColor: colors.cream, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 8},
-  tab: {alignItems: 'center', minWidth: 64, gap: 4},
-  tabIcon: {width: 56, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center'},
-  tabIconOn: {backgroundColor: colors.blue100},
-  tabLabel: {fontSize: type.tab, color: colors.muted},
+  // Matches the Figma nav: sand bar, small thin icons, the active one solid in a light blue pill.
+  tabBar: {flexDirection: 'row', justifyContent: 'space-around', backgroundColor: colors.sand, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 6},
+  tab: {alignItems: 'center', minWidth: 64, gap: 3},
+  tabIcon: {width: 48, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center'},
+  tabIconOn: {backgroundColor: colors.blue100, borderRadius: 15},
+  tabLabel: {fontSize: 11, color: colors.muted},
   tabLabelActive: {color: colors.blue700, fontWeight: '700'},
 });

@@ -47,7 +47,7 @@ export function LoginScreen({onBack, onSignUp, onSso, onSent}: LoginProps) {
     {onBack && <View style={styles.backRow}><RoundButton icon="back" onPress={onBack} label="Back" /></View>}
     <Image source={require('../../assets/brand/logo.png')} style={styles.logoImage} resizeMode="contain" accessibilityLabel="yizelearn" />
     <Text style={[styles.title, font]}>Welcome back</Text>
-    <Text style={[styles.subtitle, font]}>Log in to keep learning</Text>
+    <Text style={[styles.subtitle, font]}>Log in to manage your courses and students</Text>
 
     <Field label="Email" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" />
     {!!error && <Text style={[styles.error, font]}>{error}</Text>}

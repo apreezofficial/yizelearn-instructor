@@ -3,6 +3,7 @@ import {Alert, StatusBar, StyleSheet, View} from 'react-native';
 import {initialWindowMetrics, SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {TabBar, type TabItem} from './src/components/Catalog';
 import {LaunchIntro} from './src/components/LaunchIntro';
+import {ScreenTransition} from './src/components/ScreenTransition';
 import {EmptyState} from './src/components/States';
 import type {InstructorCourse, LessonType} from './src/data/instructor';
 import {LoginScreen, VerifyCodeScreen} from './src/screens/auth/AuthScreens';
@@ -12,17 +13,20 @@ import {
 import {CoursesScreen} from './src/screens/instructor/CoursesScreen';
 import {DashboardScreen} from './src/screens/instructor/DashboardScreen';
 import {DiscussionScreen, GradeSubmissionScreen, GradingScreen, StudentDetailScreen, StudentsScreen} from './src/screens/instructor/GradingScreens';
+import {AnnouncementScreen, CertificateScreen, LiveSessionsScreen, MoreScreen, type MoreLink} from './src/screens/instructor/MoreScreens';
+import {ConversationScreen, MessagesScreen, threads, type Thread} from './src/screens/instructor/MessagesScreens';
+import {auth} from './src/api/client';
 import {colors} from './src/theme/tokens';
 
 type Tab = 'Dashboard' | 'Courses' | 'Students' | 'Messages' | 'More';
 type Page = Tab | 'Login' | 'Verify' | 'Notifications' | 'Grading' | 'Grade' | 'Setup' | 'Curriculum' | 'Quiz' | 'Assessment'
-  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion';
+  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation';
 
 const tabs: TabItem<Tab>[] = [
-  {key: 'Dashboard', label: 'Dashboard', icon: 'dashboard'},
-  {key: 'Courses', label: 'Courses', icon: 'book'},
+  {key: 'Dashboard', label: 'Home', icon: 'dashboard'},
+  {key: 'Courses', label: 'Courses', icon: 'laptop'},
   {key: 'Students', label: 'Students', icon: 'users'},
-  {key: 'Messages', label: 'Messages', icon: 'message'},
+  {key: 'Messages', label: 'Messages', icon: 'chat'},
   {key: 'More', label: 'More', icon: 'more'},
 ];
 const tabPages: Page[] = ['Dashboard', 'Courses', 'Students', 'Messages', 'More'];
@@ -35,6 +39,7 @@ function InstructorApp() {
   const [page, setPage] = useState<Page>('Login');
   const [pendingEmail, setPendingEmail] = useState('');
   const [course, setCourse] = useState<InstructorCourse | undefined>();
+  const [thread, setThread] = useState<Thread>(threads[0]);
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
   const nav = (p: Page) => setPage(p);
   const openCourse = (c: InstructorCourse) => { setCourse(c); setDraftTitle(c.title); nav('Setup'); };
@@ -45,6 +50,14 @@ function InstructorApp() {
     else if (key === 'publish') nav('Publish');
     else Alert.alert('Basics', 'Editing course details is not connected yet.');
   };
+  const openMore = (link: MoreLink) => {
+    if (link === 'Discussions') nav('Discussion');
+    else if (link === 'Announcements') nav('Announcement');
+    else if (link === 'Live') nav('Live');
+    else if (link === 'Certificate') nav('Certificate');
+    else Alert.alert(link === 'Profile' ? 'Profile' : 'Help centre', 'This is not connected yet.');
+  };
+  const logout = () => { auth.clear(); setPendingEmail(''); nav('Login'); };
   const onPick = (type: LessonType) => {
     if (type === 'Quiz') nav('Quiz');
     else if (type === 'Assignment') nav('Assessment');
@@ -58,8 +71,12 @@ function InstructorApp() {
       case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={() => nav('Grade')} />;
       case 'Courses': return <CoursesScreen onOpen={openCourse} onNew={() => { setCourse(undefined); setDraftTitle('New course'); nav('Setup'); }} onNotifications={() => nav('Notifications')} />;
       case 'Students': return <StudentsScreen onOpen={() => nav('Student')} onNotifications={() => nav('Notifications')} />;
-      case 'Messages': return <EmptyState title="Messages" message="This screen is waiting on its design." />;
-      case 'More': return <EmptyState title="More" message="This screen is waiting on its design." />;
+      case 'Messages': return <MessagesScreen onOpen={t => { setThread(t); nav('Conversation'); }} onNotifications={() => nav('Notifications')} />;
+      case 'Conversation': return <ConversationScreen key={thread.id} thread={thread} onBack={() => nav('Messages')} />;
+      case 'More': return <MoreScreen onOpen={openMore} onNotifications={() => nav('Notifications')} onLogout={logout} />;
+      case 'Announcement': return <AnnouncementScreen onBack={() => nav('More')} onSent={() => nav('More')} />;
+      case 'Live': return <LiveSessionsScreen onBack={() => nav('More')} />;
+      case 'Certificate': return <CertificateScreen onBack={() => nav('More')} onSave={() => nav('More')} />;
       case 'Notifications': return <EmptyState title="Notifications" message="This screen is waiting on its design." actionLabel="Back" onAction={() => nav('Dashboard')} />;
       case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={() => nav('Grade')} onNotifications={() => nav('Notifications')} />;
       case 'Grade': return <GradeSubmissionScreen onBack={() => nav('Grading')} onSave={() => nav('Grading')} onRubric={() => Alert.alert('Rubric', 'Rubrics are not connected yet.')} />;
@@ -70,7 +87,7 @@ function InstructorApp() {
       case 'Upload': return <UploadVideoScreen onBack={() => nav('Curriculum')} onDone={() => nav('Curriculum')} />;
       case 'Pricing': return <PricingScreen onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
       case 'Publish': return <PublishChecklistScreen onBack={() => nav('Setup')} onFix={id => (id === 'c3' ? nav('Pricing') : Alert.alert('Thumbnail', 'Thumbnail upload is not connected yet.'))} onPublish={() => Alert.alert('Publish', `${course?.title ?? draftTitle} can be published once the API is connected.`)} />;
-      case 'Student': return <StudentDetailScreen onBack={() => nav('Students')} onMessage={() => nav('Discussion')} />;
+      case 'Student': return <StudentDetailScreen onBack={() => nav('Students')} onMessage={() => { setThread(threads[0]); nav('Conversation'); }} />;
       case 'Discussion': return <DiscussionScreen onBack={() => nav('Student')} />;
     }
   })();
@@ -79,7 +96,7 @@ function InstructorApp() {
   return <LaunchIntro><SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
     <StatusBar barStyle="dark-content" />
     <View style={styles.app}>
-      {screen}
+      <ScreenTransition key={page}>{screen}</ScreenTransition>
       {showTabs && <TabBar items={tabs} active={page as Tab} onSelect={nav} />}
     </View>
   </SafeAreaView></LaunchIntro>;
