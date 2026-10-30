@@ -1,12 +1,12 @@
-import React, {useState} from 'react';
-import {Alert, StatusBar, StyleSheet, View} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {Alert, BackHandler, StatusBar, StyleSheet, View} from 'react-native';
 import {initialWindowMetrics, SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {TabBar, type TabItem} from './src/components/Catalog';
 import {LaunchIntro} from './src/components/LaunchIntro';
 import {ScreenTransition} from './src/components/ScreenTransition';
 import {EmptyState} from './src/components/States';
 import type {InstructorCourse, LessonType} from './src/data/instructor';
-import {LoginScreen, VerifyCodeScreen} from './src/screens/auth/AuthScreens';
+import {LoginScreen, SsoScreen, VerifyCodeScreen} from './src/screens/auth/AuthScreens';
 import {
   AssessmentBuilderScreen, CurriculumScreen, PricingScreen, PublishChecklistScreen, QuizBuilderScreen, SetupScreen, UploadVideoScreen,
 } from './src/screens/instructor/CourseBuilderScreens';
@@ -20,7 +20,7 @@ import {colors} from './src/theme/tokens';
 
 type Tab = 'Dashboard' | 'Courses' | 'Students' | 'Messages' | 'More';
 type Page = Tab | 'Login' | 'Verify' | 'Notifications' | 'Grading' | 'Grade' | 'Setup' | 'Curriculum' | 'Quiz' | 'Assessment'
-  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation';
+  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion' | 'Sso' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation';
 
 const tabs: TabItem<Tab>[] = [
   {key: 'Dashboard', label: 'Home', icon: 'dashboard'},
@@ -41,7 +41,23 @@ function InstructorApp() {
   const [course, setCourse] = useState<InstructorCourse | undefined>();
   const [thread, setThread] = useState<Thread>(threads[0]);
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
-  const nav = (p: Page) => setPage(p);
+  // Pages visited since the last tab, so Android's back button retraces them.
+  const history = useRef<Page[]>([]);
+  const nav = (p: Page) => {
+    if (p === page) return;
+    history.current = tabPages.includes(p) || p === 'Login' ? [] : [...history.current.filter(h => h !== p), page];
+    setPage(p);
+  };
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const prev = history.current.pop();
+      if (prev && prev !== 'Verify') { setPage(prev); return true; }
+      if (page !== 'Dashboard' && page !== 'Login') { history.current = []; setPage(tabPages.includes(page) ? 'Dashboard' : 'Login'); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  });
   const openCourse = (c: InstructorCourse) => { setCourse(c); setDraftTitle(c.title); nav('Setup'); };
 
   const onStep = (key: string) => {
@@ -66,7 +82,8 @@ function InstructorApp() {
 
   const screen = (() => {
     switch (page) {
-      case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by invitation. Log in with your email.')} onSso={() => Alert.alert('Organisation login', 'School and work sign-in is not connected yet.')} onSent={email => { setPendingEmail(email); nav('Verify'); }} />;
+      case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by invitation. Log in with your email.')} onSso={() => nav('Sso')} onSent={email => { setPendingEmail(email); nav('Verify'); }} />;
+      case 'Sso': return <SsoScreen onBack={() => nav('Login')} onEmailLogin={() => nav('Login')} onSignedIn={() => nav('Dashboard')} />;
       case 'Verify': return <VerifyCodeScreen key={pendingEmail} email={pendingEmail} onBack={() => nav('Login')} onVerified={() => nav('Dashboard')} />;
       case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={() => nav('Grade')} />;
       case 'Courses': return <CoursesScreen onOpen={openCourse} onNew={() => { setCourse(undefined); setDraftTitle('New course'); nav('Setup'); }} onNotifications={() => nav('Notifications')} />;

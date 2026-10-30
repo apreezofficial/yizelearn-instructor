@@ -59,6 +59,9 @@ import Message02Icon from '@hugeicons/core-free-icons/Message02Icon';
 import ChartColumnIcon from '@hugeicons/core-free-icons/ChartColumnIcon';
 import Menu01Icon from '@hugeicons/core-free-icons/Menu01Icon';
 import File01Icon from '@hugeicons/core-free-icons/File01Icon';
+import SecurityCheckIcon from '@hugeicons/core-free-icons/SecurityCheckIcon';
+import Building03Icon from '@hugeicons/core-free-icons/Building03Icon';
+import School01Icon from '@hugeicons/core-free-icons/School01Icon';
 import {colors} from '../theme/tokens';
 
 // App icon names mapped to Hugeicons. `filled` renders the same outline icon with a solid fill.
@@ -107,6 +110,9 @@ const icons = {
   dashboard: {icon: DashboardSquare01Icon},
   users: {icon: UserGroupIcon},
   more: {icon: MoreHorizontalIcon},
+  shield: {icon: SecurityCheckIcon},
+  building: {icon: Building03Icon},
+  school: {icon: School01Icon},
   plus: {icon: Add01Icon},
   drag: {icon: DragDropVerticalIcon},
   trash: {icon: Delete02Icon},
