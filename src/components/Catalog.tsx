@@ -1,5 +1,5 @@
-import React, {useEffect, useRef} from 'react';
-import {Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import React from 'react';
+import {Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import type {Course} from '../api/types';
 import {formatNaira, formatNumber} from '../data/catalog';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -64,11 +64,8 @@ export function TabBar<T extends string>({items, active, onSelect}: {items: TabI
 }
 
 function Tab<T extends string>({item, on, onSelect}: {item: TabItem<T>; on: boolean; onSelect: (key: T) => void}) {
-  const pill = useRef(new Animated.Value(on ? 1 : 0)).current;
-  useEffect(() => { Animated.spring(pill, {toValue: on ? 1 : 0, friction: 7, tension: 140, useNativeDriver: true}).start(); }, [on, pill]);
   return <Pressable onPress={() => onSelect(item.key)} style={styles.tab} accessibilityRole="tab" accessibilityState={{selected: on}}>
     <View style={styles.tabIcon}>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.tabIconOn, {opacity: pill, transform: [{scaleX: pill.interpolate({inputRange: [0, 1], outputRange: [0.4, 1]})}]}]} />
       <Icon name={item.icon} size={21} strokeWidth={1.5} solid={on} color={on ? colors.blue700 : colors.muted} />
     </View>
     <Text style={[styles.tabLabel, font, on && styles.tabLabelActive]}>{item.label}</Text>
@@ -106,7 +103,6 @@ const styles = StyleSheet.create({
   tabBar: {flexDirection: 'row', justifyContent: 'space-around', backgroundColor: colors.sand, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 6},
   tab: {alignItems: 'center', minWidth: 64, gap: 3},
   tabIcon: {width: 48, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center'},
-  tabIconOn: {backgroundColor: colors.blue100, borderRadius: 15},
   tabLabel: {fontSize: 11, color: colors.muted},
   tabLabelActive: {color: colors.blue700, fontWeight: '700'},
 });
