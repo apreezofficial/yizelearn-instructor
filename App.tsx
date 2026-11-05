@@ -14,13 +14,15 @@ import {CoursesScreen} from './src/screens/instructor/CoursesScreen';
 import {DashboardScreen} from './src/screens/instructor/DashboardScreen';
 import {DiscussionScreen, GradeSubmissionScreen, GradingScreen, StudentDetailScreen, StudentsScreen} from './src/screens/instructor/GradingScreens';
 import {AnnouncementScreen, CertificateScreen, LiveSessionsScreen, MoreScreen, type MoreLink} from './src/screens/instructor/MoreScreens';
+import {ContactSupportScreen, EditProfileScreen, FeedbackSheet, HelpArticleScreen, HelpCentreScreen, HelpSearchScreen, MessageSentScreen, NotificationSettingsScreen, ProfileScreen, PublicProfileScreen, SecurityScreen, SettingsScreen, TicketDetailScreen, TicketsScreen} from './src/screens/instructor/ProfileHelpScreens';
 import {ConversationScreen, MessagesScreen, threads, type Thread} from './src/screens/instructor/MessagesScreens';
 import {auth} from './src/api/client';
 import {colors} from './src/theme/tokens';
 
 type Tab = 'Dashboard' | 'Courses' | 'Students' | 'Messages' | 'More';
 type Page = Tab | 'Login' | 'Verify' | 'Notifications' | 'Grading' | 'Grade' | 'Setup' | 'Curriculum' | 'Quiz' | 'Assessment'
-  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion' | 'Sso' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation';
+  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion' | 'Sso' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation'
+  | 'Profile' | 'EditProfile' | 'PublicProfile' | 'Settings' | 'NotificationSettings' | 'Security' | 'Help' | 'HelpSearch' | 'HelpArticle' | 'ContactSupport' | 'MessageSent' | 'Tickets' | 'TicketDetail';
 
 const tabs: TabItem<Tab>[] = [
   {key: 'Dashboard', label: 'Home', icon: 'dashboard'},
@@ -41,6 +43,7 @@ function InstructorApp() {
   const [course, setCourse] = useState<InstructorCourse | undefined>();
   const [thread, setThread] = useState<Thread>(threads[0]);
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
+  const [feedback, setFeedback] = useState(false);
   // Pages visited since the last tab, so Android's back button retraces them.
   const history = useRef<Page[]>([]);
   const nav = (p: Page) => {
@@ -71,7 +74,8 @@ function InstructorApp() {
     else if (link === 'Announcements') nav('Announcement');
     else if (link === 'Live') nav('Live');
     else if (link === 'Certificate') nav('Certificate');
-    else Alert.alert(link === 'Profile' ? 'Profile' : 'Help centre', 'This is not connected yet.');
+    else if (link === 'Profile') nav('Profile');
+    else if (link === 'Help') nav('Help');
   };
   const logout = () => { auth.clear(); setPendingEmail(''); nav('Login'); };
   const onPick = (type: LessonType) => {
@@ -91,6 +95,19 @@ function InstructorApp() {
       case 'Messages': return <MessagesScreen onOpen={t => { setThread(t); nav('Conversation'); }} onNotifications={() => nav('Notifications')} />;
       case 'Conversation': return <ConversationScreen key={thread.id} thread={thread} onBack={() => nav('Messages')} />;
       case 'More': return <MoreScreen onOpen={openMore} onNotifications={() => nav('Notifications')} onLogout={logout} />;
+      case 'Profile': return <ProfileScreen onBack={() => nav('More')} onEdit={() => nav('EditProfile')} onPreview={() => nav('PublicProfile')} onSettings={() => nav('Settings')} />;
+      case 'EditProfile': return <EditProfileScreen onBack={() => nav('Profile')} onSave={() => nav('Profile')} />;
+      case 'PublicProfile': return <PublicProfileScreen onBack={() => nav('Profile')} />;
+      case 'Settings': return <SettingsScreen onBack={() => nav('Profile')} onNotifications={() => nav('NotificationSettings')} onSecurity={() => nav('Security')} onLogout={logout} />;
+      case 'NotificationSettings': return <NotificationSettingsScreen onBack={() => nav('Settings')} />;
+      case 'Security': return <SecurityScreen onBack={() => nav('Settings')} />;
+      case 'Help': return <HelpCentreScreen onBack={() => nav('More')} onSearch={() => nav('HelpSearch')} onContact={() => nav('ContactSupport')} onTickets={() => nav('Tickets')} />;
+      case 'HelpSearch': return <HelpSearchScreen onBack={() => nav('Help')} onArticle={() => nav('HelpArticle')} onEmpty={() => nav('ContactSupport')} />;
+      case 'HelpArticle': return <><HelpArticleScreen onBack={() => nav('HelpSearch')} onFeedback={() => setFeedback(true)} onError={() => nav('ContactSupport')} />{feedback && <FeedbackSheet onClose={() => setFeedback(false)} />}</>;
+      case 'ContactSupport': return <ContactSupportScreen onBack={() => nav('Help')} onSent={() => nav('MessageSent')} />;
+      case 'MessageSent': return <MessageSentScreen onBack={() => nav('Help')} onTickets={() => nav('Tickets')} />;
+      case 'Tickets': return <TicketsScreen onBack={() => nav('Help')} onOpen={() => nav('TicketDetail')} onEmpty={() => nav('ContactSupport')} />;
+      case 'TicketDetail': return <TicketDetailScreen onBack={() => nav('Tickets')} />;
       case 'Announcement': return <AnnouncementScreen onBack={() => nav('More')} onSent={() => nav('More')} />;
       case 'Live': return <LiveSessionsScreen onBack={() => nav('More')} />;
       case 'Certificate': return <CertificateScreen onBack={() => nav('More')} onSave={() => nav('More')} />;
