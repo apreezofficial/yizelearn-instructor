@@ -1,4 +1,4 @@
-import {request} from './client';
+import {ApiError, request} from './client';
 import {session} from './session';
 import {toUser} from './mappers';
 import type {ApiAuthResult} from './contract';
@@ -44,6 +44,39 @@ export const ticketsApi = {
   create: (v: {topic: TicketTopic; subject: string; message: string}) => request<{id: string; number: number}>('/support/tickets', {method: 'POST', idempotent: true, body: v}),
 };
 
+// File uploads. Small files go up in one request; videos go up in parts. Each part is sent to its own signed address.
+export type PickedFile = {uri: string; name: string; type: string; size: number};
+type UploadSlot = {id: string; mode: 'single' | 'multipart'; single?: {url: string; method: string; headers?: Record<string, string>}; multipart?: {partSizeBytes: number; partCount: number}};
+export const uploadsApi = {
+  upload: async (file: PickedFile, purpose: 'lesson_video' | 'lesson_document' | 'course_thumbnail' | 'avatar', onProgress?: (pct: number) => void): Promise<string> => {
+    const slot = await request<UploadSlot>('/uploads', {method: 'POST', idempotent: true, body: {purpose, fileName: file.name, contentType: file.type, sizeBytes: file.size}});
+    const blob = await (await fetch(file.uri)).blob();
+    if (slot.mode === 'single' && slot.single) {
+      const put = await fetch(slot.single.url, {method: slot.single.method || 'PUT', headers: {'Content-Type': file.type, ...(slot.single.headers ?? {})}, body: blob});
+      if (!put.ok) throw new ApiError('The upload did not finish. Try again.', put.status);
+      await request<unknown>(`/uploads/${slot.id}/complete`, {method: 'POST', body: {}});
+      onProgress?.(100);
+      return slot.id;
+    }
+    const size = slot.multipart?.partSizeBytes ?? 16 * 1024 * 1024;
+    const count = Math.max(1, Math.ceil(file.size / size));
+    const parts: {partNumber: number; etag: string; sizeBytes: number}[] = [];
+    for (let first = 1; first <= count; first += 50) {
+      const numbers = Array.from({length: Math.min(50, count - first + 1)}, (_, i) => first + i);
+      const {urls} = await request<{urls: {partNumber: number; url: string}[]}>(`/uploads/${slot.id}/parts`, {method: 'POST', body: {partNumbers: numbers}});
+      for (const u of urls) {
+        const chunk = blob.slice((u.partNumber - 1) * size, Math.min(file.size, u.partNumber * size));
+        const put = await fetch(u.url, {method: 'PUT', headers: {'Content-Type': 'application/octet-stream'}, body: chunk});
+        if (!put.ok) throw new ApiError('The upload did not finish. Try again.', put.status);
+        parts.push({partNumber: u.partNumber, etag: (put.headers.get('etag') ?? '').replace(/"/g, ''), sizeBytes: chunk.size});
+        onProgress?.(Math.round((parts.length / count) * 100));
+      }
+    }
+    await request<unknown>(`/uploads/${slot.id}/complete`, {method: 'POST', body: {parts}});
+    return slot.id;
+  },
+};
+
 export type Metric = {value: number; changePct: number | null; changePts: number | null};
 export type Dashboard = {range: string; activeLearners: Metric; completion: Metric; toGrade: {count: number; overdue: number}; engagement: {date: string; value: number}[]; toGradePreview: GradingItem[]};
 export type GradingItem = {id: string; type: string; learner: {id: string; fullName: string; initials: string}; courseId: string; courseTitle: string; title: string; submittedAt: string; dueAt: string | null; status: 'pending' | 'overdue' | 'graded'};
@@ -84,6 +117,9 @@ export type CertTemplate = {style: 'classic' | 'modern' | 'minimal'; signerName:
 export type PrefRow = {type: string; enabled: boolean; channels: string[]; mandatory: boolean};
 
 export const instructorApi = {
+  attachVideo: (lessonId: string, uploadId: string) => request<unknown>(`/instructor/lessons/${lessonId}/video`, {method: 'PUT', body: {uploadId}}),
+  attachDocument: (lessonId: string, uploadId: string) => request<unknown>(`/instructor/lessons/${lessonId}/document`, {method: 'PUT', body: {uploadId}}),
+  setThumbnail: (courseId: string, uploadId: string) => request<unknown>(`/instructor/courses/${courseId}/thumbnail`, {method: 'PUT', body: {uploadId}}),
   discussions: () => request<Page<Thread>>('/instructor/discussions?limit=50'),
   thread: (id: string) => request<{thread: Thread; replies: Reply[]}>(`/discussions/${id}`),
   reply: (id: string, body: string) => request<Reply>(`/discussions/${id}/replies`, {method: 'POST', body: {body}}),

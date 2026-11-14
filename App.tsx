@@ -7,7 +7,8 @@ import {ScreenTransition} from './src/components/ScreenTransition';
 import {EmptyState} from './src/components/States';
 import {setIdentity, type InstructorCourse, type LessonType} from './src/data/instructor';
 import {LoginScreen} from './src/screens/auth/AuthScreens';
-import {authApi} from './src/api/endpoints';
+import {errorCodes, isErrorWithCode, pick as pickFile, types} from '@react-native-documents/picker';
+import {authApi, instructorApi, uploadsApi} from './src/api/endpoints';
 import type {User} from './src/api/types';
 import {
   AssessmentBuilderScreen, CurriculumScreen, PricingScreen, PublishChecklistScreen, BasicsScreen, QuizBuilderScreen, SetupScreen, UploadVideoScreen,
@@ -49,6 +50,7 @@ function InstructorApp() {
   const [feedback, setFeedback] = useState(false);
   const [gradeId, setGradeId] = useState('');
   const [editId, setEditId] = useState('');
+  const [uploadKind, setUploadKind] = useState<'video' | 'document'>('video');
   const [learner, setLearner] = useState<{id: string; courseId: string}>({id: '', courseId: ''});
   // Pages visited since the last tab, so Android's back button retraces them.
   const history = useRef<Page[]>([]);
@@ -67,6 +69,17 @@ function InstructorApp() {
     });
     return () => sub.remove();
   });
+  const pickThumbnail = async () => {
+    if (!course) return;
+    try {
+      const [res] = await pickFile({type: [types.images], mode: 'import'});
+      const id = await uploadsApi.upload({uri: res.uri, name: res.name ?? 'thumbnail.jpg', type: res.type ?? 'image/jpeg', size: res.size ?? 0}, 'course_thumbnail');
+      await instructorApi.setThumbnail(course.id, id);
+      Alert.alert('Thumbnail added', 'Go back to the checklist to see it tick off.');
+    } catch (e) {
+      if (!(isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED)) Alert.alert('Could not add the thumbnail', e instanceof Error ? e.message : 'Try again.');
+    }
+  };
   const openCourse = (c: InstructorCourse) => { setCourse(c); setDraftTitle(c.title); nav('Setup'); };
 
   const onStep = (key: string) => {
@@ -113,12 +126,12 @@ function InstructorApp() {
       case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={id => { setGradeId(id); nav('Grade'); }} onNotifications={() => nav('Notifications')} />;
       case 'Grade': return <GradeSubmissionScreen key={gradeId} id={gradeId} onBack={() => nav('Grading')} onSave={() => nav('Grading')} />;
       case 'Setup': return <SetupScreen courseId={course?.id} title={draftTitle} onBack={() => nav('Courses')} onStep={onStep} />;
-      case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onEdit={(kind, id) => { setEditId(id); nav(kind === 'quiz' ? 'Quiz' : 'Assessment'); }} />;
+      case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onEdit={(kind, id) => { setEditId(id); if (kind === 'video' || kind === 'document') { setUploadKind(kind); nav('Upload'); } else nav(kind === 'quiz' ? 'Quiz' : 'Assessment'); }} />;
       case 'Quiz': return <QuizBuilderScreen key={editId} quizId={editId} onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
       case 'Assessment': return <AssessmentBuilderScreen key={editId} assessmentId={editId} onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
-      case 'Upload': return <UploadVideoScreen onBack={() => nav('Curriculum')} onDone={() => nav('Curriculum')} />;
+      case 'Upload': return <UploadVideoScreen key={editId} lessonId={editId} kind={uploadKind} onBack={() => nav('Curriculum')} onDone={() => nav('Curriculum')} />;
       case 'Pricing': return <PricingScreen courseId={course?.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
-      case 'Publish': return <PublishChecklistScreen courseId={course?.id} onBack={() => nav('Setup')} onFix={target => (target === 'curriculum' ? nav('Curriculum') : target === 'pricing' ? nav('Pricing') : target === 'basics' ? nav('Basics') : Alert.alert('Thumbnail', 'Uploading a thumbnail needs a photo picker, which this app does not have yet.'))} onPublished={() => nav('Courses')} />;
+      case 'Publish': return <PublishChecklistScreen courseId={course?.id} onBack={() => nav('Setup')} onFix={target => (target === 'curriculum' ? nav('Curriculum') : target === 'pricing' ? nav('Pricing') : target === 'basics' ? nav('Basics') : pickThumbnail())} onPublished={() => nav('Courses')} />;
       case 'Basics': return course ? <BasicsScreen courseId={course.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} /> : null;
       case 'Student': return <StudentDetailScreen key={learner.id} learnerId={learner.id} courseId={learner.courseId} onBack={() => nav('Students')} onMessage={() => nav('Messages')} />;
       case 'Discussion': return <DiscussionScreen onBack={() => nav('More')} />;

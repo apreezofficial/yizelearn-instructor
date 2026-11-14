@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
-import {instructorApi, type AssessmentData, type Checklist, type Curriculum, type QuestionType, type QuizData, type SetupData} from '../../api/endpoints';
+import {errorCodes, isErrorWithCode, pick as pickFile, types} from '@react-native-documents/picker';
+import {instructorApi, uploadsApi, type AssessmentData, type Checklist, type Curriculum, type QuestionType, type QuizData, type SetupData} from '../../api/endpoints';
 import {ProgressBar} from '../../components/Chalkboard';
 import {CourseArt} from '../../components/Catalog';
 import {Icon} from '../../components/Icon';
@@ -83,7 +84,7 @@ export function BasicsScreen({courseId, onBack, onSave}: {courseId: string; onBa
 }
 
 /** Curriculum: modules with their lessons, plus the add-lesson sheet. */
-export function CurriculumScreen({courseId, onBack, onEdit}: {courseId?: string; onBack: () => void; onEdit: (kind: 'quiz' | 'assessment', id: string) => void}) {
+export function CurriculumScreen({courseId, onBack, onEdit}: {courseId?: string; onBack: () => void; onEdit: (kind: 'quiz' | 'assessment' | 'video' | 'document', id: string) => void}) {
   const [closed, setClosed] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
   const [moduleSheet, setModuleSheet] = useState(false);
@@ -133,7 +134,7 @@ export function CurriculumScreen({courseId, onBack, onEdit}: {courseId?: string;
             <Icon name={expanded ? 'down' : 'next'} size={20} color={colors.ink} />
           </Pressable>
           {expanded && module.lessons.length === 0 && <Text style={[font, styles.lessonType, styles.lessonEmpty]}>No lessons in this module yet.</Text>}
-          {expanded && module.lessons.map(lesson => <Pressable key={lesson.id} disabled={!(lesson.quizId || lesson.assessmentId)} onPress={() => lesson.quizId ? onEdit('quiz', lesson.quizId) : lesson.assessmentId ? onEdit('assessment', lesson.assessmentId) : undefined} style={styles.lesson} accessibilityRole="button">
+          {expanded && module.lessons.map(lesson => <Pressable key={lesson.id} onPress={() => lesson.quizId ? onEdit('quiz', lesson.quizId) : lesson.assessmentId ? onEdit('assessment', lesson.assessmentId) : onEdit(lesson.type === 'document' ? 'document' : 'video', lesson.id)} style={styles.lesson} accessibilityRole="button">
             <Icon name="handle" size={16} color={colors.muted} />
             <Text style={[font, styles.lessonTitle]}>{lesson.title}</Text>
             <Text style={[font, styles.lessonType]}>{lesson.type}</Text>
@@ -293,35 +294,48 @@ export function AssessmentBuilderScreen({assessmentId, onBack, onSave}: {assessm
   </View>;
 }
 
-export function UploadVideoScreen({onBack, onDone}: {onBack: () => void; onDone: () => void}) {
+export function UploadVideoScreen({lessonId, kind, onBack, onDone}: {lessonId: string; kind: 'video' | 'document'; onBack: () => void; onDone: () => void}) {
+  const [file, setFile] = useState<{name: string; size: number} | null>(null);
+  const [pct, setPct] = useState(0);
+  const [state, setState] = useState<'idle' | 'uploading' | 'done' | 'failed'>('idle');
+  const [error, setError] = useState('');
+  const start = async () => {
+    try {
+      const [res] = await pickFile({type: kind === 'video' ? [types.video] : [types.pdf, types.pptx, types.docx], mode: 'import'});
+      const picked = {uri: res.uri, name: res.name ?? (kind === 'video' ? 'video.mp4' : 'file.pdf'), type: res.type ?? (kind === 'video' ? 'video/mp4' : 'application/pdf'), size: res.size ?? 0};
+      setFile({name: picked.name, size: picked.size}); setPct(0); setError(''); setState('uploading');
+      const id = await uploadsApi.upload(picked, kind === 'video' ? 'lesson_video' : 'lesson_document', setPct);
+      await (kind === 'video' ? instructorApi.attachVideo(lessonId, id) : instructorApi.attachDocument(lessonId, id));
+      setState('done');
+    } catch (e) {
+      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) { setState('idle'); return; }
+      setError(e instanceof Error ? e.message : 'The upload failed.'); setState('failed');
+    }
+  };
+  const mb = file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : '';
   return <View style={styles.screen}>
-    <StackHeader title="Upload video" onBack={onBack} />
+    <StackHeader title={kind === 'video' ? 'Upload video' : 'Upload file'} onBack={onBack} />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Pressable onPress={() => notConnected('Choosing video files')} style={styles.drop} accessibilityRole="button">
+      <Pressable onPress={start} disabled={state === 'uploading'} style={[styles.drop, state === 'uploading' && styles.dim]} accessibilityRole="button">
         <View style={styles.dropIcon}><Icon name="upload" size={22} color={colors.blue700} /></View>
-        <Text style={[font, styles.dropTitle]}>Tap to choose a video</Text>
-        <Text style={[font, styles.cardMeta]}>MP4 or MOV, up to 2 GB</Text>
+        <Text style={[font, styles.dropTitle]}>{state === 'uploading' ? 'Uploading…' : kind === 'video' ? 'Tap to choose a video' : 'Tap to choose a file'}</Text>
+        <Text style={[font, styles.cardMeta]}>{kind === 'video' ? 'MP4 or MOV, up to 2 GB' : 'PDF, slides or documents'}</Text>
       </Pressable>
-      {videoUploads.map((v, i) => {
-        const failed = v.status === 'failed';
-        return <Reveal key={v.id} order={i + 1}><View style={[styles.card, styles.upload, failed && styles.uploadFailed]}>
-          <IconBadge name="file" size={40} square />
-          <View style={styles.flex}>
-            <Text style={[font, styles.cardTitle]}>{v.name}</Text>
-            <Text style={[font, styles.cardMeta, failed && styles.danger]}>{v.status === 'uploading' ? `Uploading, ${v.progress}%` : v.status === 'uploaded' ? 'Uploaded' : `Failed: ${v.error?.toLowerCase()}`}</Text>
-            {v.status === 'uploading' && <View style={styles.uploadBar}><ProgressBar value={v.progress} fill={colors.blue700} track={colors.sand} height={5} /></View>}
-          </View>
-          {v.status === 'uploading' && <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Cancel upload"><Icon name="close" size={20} color={colors.ink} /></Pressable>}
-          {v.status === 'uploaded' && <View style={[styles.mark, styles.markDone]}><Icon name="check" size={16} color={colors.white} strokeWidth={2.4} /></View>}
-          {failed && <Pressable hitSlop={10} accessibilityRole="button"><Text style={[font, styles.link]}>Retry</Text></Pressable>}
-        </View></Reveal>;
-      })}
+      {file && <View style={[styles.card, styles.upload, state === 'failed' && styles.uploadFailed]}>
+        <IconBadge name="file" size={40} square />
+        <View style={styles.flex}>
+          <Text style={[font, styles.cardTitle]}>{file.name}</Text>
+          <Text style={[font, styles.cardMeta, state === 'failed' && styles.danger]}>{state === 'uploading' ? `Uploading, ${pct}%` : state === 'done' ? `Uploaded, ${mb}. ${kind === 'video' ? 'Processing can take a few minutes.' : ''}` : `Failed: ${error}`}</Text>
+          {state === 'uploading' && <View style={styles.uploadBar}><ProgressBar value={pct} fill={colors.blue700} track={colors.sand} height={5} /></View>}
+        </View>
+        {state === 'done' && <View style={[styles.mark, styles.markDone]}><Icon name="check" size={16} color={colors.white} strokeWidth={2.4} /></View>}
+        {state === 'failed' && <Pressable onPress={start} hitSlop={10} accessibilityRole="button"><Text style={[font, styles.link]}>Retry</Text></Pressable>}
+      </View>}
     </ScrollView>
-    <Footer label="Done" onPress={onDone} />
+    <Footer label="Done" disabled={state === 'uploading'} onPress={onDone} />
   </View>;
 }
 
-/** Pricing: course price, optional launch discount with promo code and end date. */
 export function PricingScreen({courseId, onBack, onSave}: {courseId?: string; onBack: () => void; onSave: () => void}) {
   const {data, error, reload} = useLoaded(() => (courseId ? instructorApi.pricing(courseId) : Promise.resolve(null)), [courseId]);
   const [price, setPrice] = useState<string | null>(null);
@@ -408,6 +422,7 @@ const styles = StyleSheet.create({
   moduleInput: {minHeight: 52, borderRadius: radius.field, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, paddingHorizontal: 16, fontSize: type.body, color: colors.ink, marginBottom: 14},
   content: {paddingHorizontal: spacing.screen, paddingBottom: 28},
   flex: {flex: 1},
+  dim: {opacity: 0.6},
   pressed: {opacity: 0.8},
   card: {backgroundColor: colors.barBg, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card},
   cardTitle: {fontSize: type.label, color: colors.ink, fontFamily: fonts.bold},
