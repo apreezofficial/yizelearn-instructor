@@ -89,6 +89,9 @@ export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string;
   const [moduleSheet, setModuleSheet] = useState(false);
   const [moduleTitle, setModuleTitle] = useState('');
   const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState<LessonType | null>(null);
+  const [lessonTitle, setLessonTitle] = useState('');
+  const [moduleId, setModuleId] = useState('');
   const [data, setData] = useState<Curriculum | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
@@ -106,6 +109,14 @@ export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string;
     finally { setSaving(false); }
   };
   const modules = data?.modules ?? [];
+  const targetModule = moduleId || modules[0]?.id || '';
+  const addLesson = async () => {
+    if (!pending || !targetModule || lessonTitle.trim().length < 2) return;
+    setSaving(true);
+    try { await instructorApi.addLesson(targetModule, pending.toLowerCase() as 'video' | 'document' | 'quiz' | 'assignment', lessonTitle.trim()); setPending(null); setLessonTitle(''); load(); }
+    catch (e) { Alert.alert('Could not add the lesson', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setSaving(false); }
+  };
   return <View style={styles.screen}>
     <StackHeader title="Curriculum" onBack={onBack} right={<Pressable onPress={() => setSheet(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add lesson"><Icon name="plus" size={24} color={colors.ink} /></Pressable>} />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -145,12 +156,24 @@ export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string;
       </View>
     </Modal>
 
+    <Modal visible={!!pending} transparent animationType="fade" onRequestClose={() => setPending(null)}>
+      <Pressable style={styles.scrim} onPress={() => setPending(null)} accessibilityLabel="Close" />
+      <View style={styles.sheet}>
+        <View style={styles.grabber} />
+        <Text style={[font, styles.sheetTitle]}>New {pending?.toLowerCase()} lesson</Text>
+        <Text style={[font, styles.cardMeta]}>Module</Text>
+        <View style={styles.chips}>{modules.map(m => <Pressable key={m.id} onPress={() => setModuleId(m.id)} style={[styles.chip, targetModule === m.id && styles.chipOn]} accessibilityRole="button"><Text style={[font, styles.chipText, targetModule === m.id && styles.chipTextOn]}>{m.title}</Text></Pressable>)}</View>
+        <TextInput value={lessonTitle} onChangeText={setLessonTitle} placeholder="Lesson title" placeholderTextColor={colors.muted} style={[font, styles.moduleInput]} autoFocus />
+        <Footer label={saving ? 'Adding…' : 'Add lesson'} disabled={saving || lessonTitle.trim().length < 2} onPress={addLesson} />
+      </View>
+    </Modal>
+
     <Modal visible={sheet} transparent animationType="fade" onRequestClose={() => setSheet(false)}>
       <Pressable style={styles.scrim} onPress={() => setSheet(false)} accessibilityLabel="Close" />
       <View style={styles.sheet}>
         <View style={styles.grabber} />
         <Text style={[font, styles.sheetTitle]}>Add lesson</Text>
-        {lessonTypes.map(item => <Pressable key={item.type} onPress={() => { setSheet(false); onPick(item.type); }} style={({pressed}) => [styles.choice, pressed && styles.pressed]} accessibilityRole="button">
+        {lessonTypes.map(item => <Pressable key={item.type} onPress={() => { setSheet(false); if (modules.length === 0) { Alert.alert('Add a module first', 'Lessons live inside modules.'); return; } setPending(item.type); }} style={({pressed}) => [styles.choice, pressed && styles.pressed]} accessibilityRole="button">
           <IconBadge name={item.icon} size={40} />
           <View style={styles.flex}>
             <Text style={[font, styles.cardTitle]}>{item.type}</Text>
@@ -320,6 +343,11 @@ const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: colors.cream},
   note: {fontSize: 15, color: colors.muted, marginTop: 16, lineHeight: 22},
   lessonEmpty: {paddingVertical: 12},
+  chips: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 10},
+  chip: {minHeight: 40, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, justifyContent: 'center'},
+  chipOn: {backgroundColor: colors.blue700, borderColor: colors.blue700},
+  chipText: {fontSize: 14, color: colors.ink},
+  chipTextOn: {color: colors.white},
   moduleInput: {minHeight: 52, borderRadius: radius.field, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, paddingHorizontal: 16, fontSize: type.body, color: colors.ink, marginBottom: 14},
   content: {paddingHorizontal: spacing.screen, paddingBottom: 28},
   flex: {flex: 1},
