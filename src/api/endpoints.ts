@@ -1,61 +1,49 @@
-import {API_BASE_URL, ApiError, request} from './client';
-import type {AssignmentSubmission, Course, DashboardSummary, Lesson, Module, Paginated, Payment, User} from './types';
+import {request} from './client';
+import {session} from './session';
+import {toUser} from './mappers';
+import type {ApiAuthResult} from './contract';
+import type {User} from './types';
 
-// Sign-in and sign-up are one flow: the user enters an email, gets a 6-digit code, and enters it. No passwords.
-// Until the backend is live (the base URL is still the placeholder), dev builds sign in without it:
-// any email "sends" a code and any 6 digits log you in.
-const MOCK_AUTH = __DEV__ && API_BASE_URL.includes('example.com');
-const mockUser = (email: string, name?: string): User => ({id: 'mock-user', name: name || email.split('@')[0], email, role: 'instructor'});
+// Instructor app endpoints, from the live contract (https://16-170-53-222.sslip.io/docs).
+// Sign-in is email and password, with a 6-digit authenticator code when two-step is on.
+export type SignInResult = {status: 'signed-in'; user: User} | {status: 'two-step'; challengeToken: string};
 
-export const authApi = {
-  requestCode: (email: string, name?: string) => (MOCK_AUTH ? Promise.resolve() : request<void>('/auth/code/request', {method: 'POST', body: {email, name}})),
-  verifyCode: (email: string, code: string) => (MOCK_AUTH
-    ? Promise.resolve({token: 'mock-token', user: mockUser(email)})
-    : request<{token: string; user: User}>('/auth/code/verify', {method: 'POST', body: {email, code}})),
-  me: () => request<User>('/auth/me'),
-  logout: () => request<void>('/auth/logout', {method: 'POST'}),
-  // School and work SSO: look up the organisation from the email's domain, then sign in through its identity provider.
-  ssoLookup: (email: string) => (MOCK_AUTH ? mockOrganisation(email) : request<Organisation>(`/auth/sso/lookup?email=${encodeURIComponent(email)}`)),
-  ssoSignIn: (organisationId: string, email: string) => (MOCK_AUTH
-    ? new Promise<{token: string; user: User}>(resolve => setTimeout(() => resolve({token: 'mock-token', user: mockUser(email)}), 2400))
-    : request<{token: string; user: User}>('/auth/sso/complete', {method: 'POST', body: {organisationId, email}})),
-};
-
-export type Organisation = {id: string; name: string; domain: string; kind: 'school' | 'work'; provider: string};
-
-const PUBLIC_DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'live.com', 'proton.me', 'aol.com'];
-const KNOWN: Record<string, Omit<Organisation, 'domain'>> = {
-  'unilag.edu.ng': {id: 'unilag', name: 'University of Lagos', kind: 'school', provider: 'Microsoft'},
-  'ui.edu.ng': {id: 'ui', name: 'University of Ibadan', kind: 'school', provider: 'Google Workspace'},
-  'covenantuniversity.edu.ng': {id: 'cu', name: 'Covenant University', kind: 'school', provider: 'Microsoft'},
-  'andela.com': {id: 'andela', name: 'Andela', kind: 'work', provider: 'Okta'},
-};
-
-// Dev stand-in for the lookup: personal email providers have no SSO; any other domain is treated as an organisation.
-function mockOrganisation(email: string): Promise<Organisation> {
-  const domain = email.split('@')[1]?.toLowerCase() ?? '';
-  return new Promise((resolve, reject) => setTimeout(() => {
-    if (PUBLIC_DOMAINS.includes(domain)) { reject(new ApiError(`${domain} is a personal email. Use the email your school or employer gave you.`, 404)); return; }
-    const known = KNOWN[domain];
-    const school = /\.(edu|ac|sch)(\.|$)/.test(domain);
-    const base = domain.split('.')[0];
-    resolve(known ? {...known, domain} : {id: base, name: base.charAt(0).toUpperCase() + base.slice(1), domain, kind: school ? 'school' : 'work', provider: 'your organisation'});
-  }, 900));
+async function finish(result: ApiAuthResult): Promise<SignInResult> {
+  if (result.status === 'mfa_required') return {status: 'two-step', challengeToken: result.mfa.challengeToken};
+  await session.set(result.tokens);
+  return {status: 'signed-in', user: toUser(result.tokens.user)};
 }
 
-export const dashboardApi = { instructor: () => request<DashboardSummary>('/instructor/dashboard'), administrator: () => request<DashboardSummary>('/administrator/dashboard') };
-
-export const coursesApi = {
-  list: (params?: {status?: string; page?: number}) => request<Paginated<Course>>(`/courses${params?.status ? `?status=${encodeURIComponent(params.status)}` : ''}`),
-  get: (id: string) => request<Course>(`/courses/${id}`),
-  modules: (id: string) => request<Module[]>(`/courses/${id}/modules`),
-  create: (payload: Pick<Course, 'title'> & Partial<Course>) => request<Course>('/courses', {method: 'POST', body: payload}),
-  update: (id: string, payload: Partial<Course>) => request<Course>(`/courses/${id}`, {method: 'PATCH', body: payload}),
+export const authApi = {
+  logIn: async (email: string, password: string) => finish(await request<ApiAuthResult>('/auth/login', {method: 'POST', anonymous: true, body: {email, password, deviceName: 'yizelearn instructor app', platform: 'ios'}})),
+  mfaVerify: async (challengeToken: string, code: string) => finish(await request<ApiAuthResult>('/auth/mfa/verify', {method: 'POST', anonymous: true, body: {challengeToken, code}})),
+  forgotPassword: (email: string) => request<void>('/auth/password/forgot', {method: 'POST', anonymous: true, body: {email}}),
+  ssoDiscover: (email: string) => request<{available: boolean; name?: string | null}>('/auth/sso/discover', {method: 'POST', anonymous: true, body: {email}}),
+  logout: async () => {
+    const tokens = session.get();
+    try { if (tokens) await request<void>('/auth/logout', {method: 'POST', body: {refreshToken: tokens.refreshToken}}); } catch { /* signed out here either way */ }
+    await session.clear();
+  },
 };
 
-export const learningApi = { myCourses: () => request<Paginated<Course>>('/me/courses'), lesson: (courseId: string, lessonId: string) => request<Lesson>(`/courses/${courseId}/lessons/${lessonId}`), completeLesson: (courseId: string, lessonId: string) => request<void>(`/courses/${courseId}/lessons/${lessonId}/complete`, {method: 'POST'}) };
-export const gradingApi = { queue: () => request<Paginated<AssignmentSubmission>>('/grading/submissions'), get: (id: string) => request<AssignmentSubmission>(`/grading/submissions/${id}`), grade: (id: string, score: number, feedback: string) => request<AssignmentSubmission>(`/grading/submissions/${id}`, {method: 'POST', body: {score, feedback}}) };
-export const usersApi = { list: (page = 1) => request<Paginated<User>>(`/users?page=${page}`), get: (id: string) => request<User>(`/users/${id}`), invite: (email: string, role: string) => request<void>('/users/invite', {method: 'POST', body: {email, role}}) };
-export const paymentsApi = { list: () => request<Paginated<Payment>>('/payments'), checkout: (courseId: string, method: string) => request<{reference: string}>('/payments/checkout', {method: 'POST', body: {courseId, method}}) };
-export const notificationsApi = { list: () => request<Paginated<{id: string; title: string; body: string; read: boolean}>>('/notifications'), markRead: (id: string) => request<void>(`/notifications/${id}/read`, {method: 'POST'}) };
+export type Metric = {value: number; changePct: number | null; changePts: number | null};
+export type Dashboard = {range: string; activeLearners: Metric; completion: Metric; toGrade: {count: number; overdue: number}; engagement: {date: string; value: number}[]; toGradePreview: GradingItem[]};
+export type GradingItem = {id: string; type: string; learner: {id: string; fullName: string; initials: string}; courseId: string; courseTitle: string; title: string; submittedAt: string; dueAt: string | null; status: 'pending' | 'overdue' | 'graded'};
+export type CourseRow = {id: string; title: string; lessonCount: number; status: 'draft' | 'in_review' | 'changes_requested' | 'published' | 'unpublished'; thumbnailUrl: string | null; learnersCount: number; updatedAt: string};
+export type Page<T> = {data: T[]; page: {nextCursor: string | null; hasMore: boolean; total: number | null}};
+export type LessonRow = {id: string; title: string; type: 'video' | 'document' | 'quiz' | 'assignment'; position: number; isPreview: boolean; isPublished: boolean; durationSec: number | null};
+export type ModuleRow = {id: string; position: number; title: string; lessonCount: number; lessons: LessonRow[]};
+export type Curriculum = {courseId: string; moduleCount: number; lessonCount: number; durationMin: number; modules: ModuleRow[]};
 
+export const instructorApi = {
+  dashboard: (range: '7d' | '30d' = '7d') => request<Dashboard>(`/instructor/dashboard?range=${range}`),
+  courses: () => request<Page<CourseRow>>('/instructor/courses?limit=100'),
+  createCourse: (title: string) => request<CourseRow & Record<string, unknown>>('/instructor/courses', {method: 'POST', idempotent: true, body: {title}}),
+  curriculum: (courseId: string) => request<Curriculum>(`/instructor/courses/${courseId}/curriculum`),
+  addModule: (courseId: string, title: string) => request<ModuleRow>(`/instructor/courses/${courseId}/modules`, {method: 'POST', body: {title}}),
+  addLesson: (moduleId: string, type: LessonRow['type'], title: string, isPreview = false) => request<LessonRow>(`/instructor/modules/${moduleId}/lessons`, {method: 'POST', body: {type, title, isPreview}}),
+  publish: (courseId: string) => request<unknown>(`/instructor/courses/${courseId}/publish`, {method: 'POST'}),
+  grading: () => request<Page<GradingItem>>('/instructor/submissions?limit=50'),
+  grade: (submissionId: string, score: number, feedback: string) => request<unknown>(`/instructor/submissions/${submissionId}/grade`, {method: 'PUT', body: {score, feedback, rubricScores: []}}),
+  students: () => request<Page<{learner: {id: string; fullName: string; initials: string}; course: {id: string; title: string}; progressPct: number; status: string | null; lastActiveAt: string | null}>>('/instructor/students?limit=50'),
+};

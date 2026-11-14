@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Animated, Easing, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View} from 'react-native';
-import {dashboard} from '../../data/instructor';
+import {ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View} from 'react-native';
+import {instructorApi, type Dashboard, type GradingItem} from '../../api/endpoints';
 import {colors, radius, resolveColor, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, IconBadge, Pill, Reveal, Row, SectionTitle, TabHeader} from './shared';
 
@@ -37,9 +37,9 @@ export function Drift({style, range, duration}: {style: object; range: number; d
 }
 
 /** Engagement chart: bars grow in one after another; tap a bar to see its count. */
-function EngagementChart() {
+function EngagementChart({data}: {data: {day: string; value: number}[]}) {
   const scheme = useColorScheme();
-  const data = dashboard.engagement;
+  if (data.length === 0) return <Text style={[font, styles.barDay]}>No activity in this period yet.</Text>;
   const max = Math.max(...data.map(d => d.value));
   const [selected, setSelected] = useState(data.findIndex(d => d.value === max));
   const grow = useRef(data.map(() => new Animated.Value(0))).current;
@@ -77,7 +77,33 @@ function EngagementChart() {
   </View>;
 }
 
+type DashView = {activeLearners: number; activeChange: string; completion: number; completionChange: string; toGrade: number; overdue: number; engagement: {day: string; value: number}[]; pendingGrades: {id: string; title: string; learner: string; time: string}[]};
+const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const signed = (n: number | null | undefined, suffix: string) => (n == null ? '' : `${n > 0 ? '+' : ''}${Math.round(n * 10) / 10}${suffix}`);
+const ago = (iso: string) => {
+  const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000);
+  return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+};
+const toView = (d: Dashboard): DashView => ({
+  activeLearners: d.activeLearners.value,
+  activeChange: signed(d.activeLearners.changePct, '% this month'),
+  completion: d.completion.value,
+  completionChange: signed(d.completion.changePts, ' pts'),
+  toGrade: d.toGrade.count,
+  overdue: d.toGrade.overdue,
+  engagement: d.engagement.map(p => ({day: DAYS[new Date(p.date).getDay()], value: p.value})),
+  pendingGrades: d.toGradePreview.map((g: GradingItem) => ({id: g.id, title: g.title, learner: g.learner.fullName, time: ago(g.submittedAt)})),
+});
+
 export function DashboardScreen({onGrading, onNotifications, onGradeItem}: Props) {
+  const [dashboard, setDashboard] = useState<DashView | null>(null);
+  const [error, setError] = useState('');
+  const load = () => { setError(''); instructorApi.dashboard().then(d => setDashboard(toView(d)), e => setError(e instanceof Error ? e.message : 'Could not load your dashboard.')); };
+  useEffect(load, []);
+  if (!dashboard) return <View style={styles.screen}><TabHeader title="Home" onBell={onNotifications} />
+    {error ? <Pressable onPress={load} style={styles.retry} accessibilityRole="button"><Text style={[font, styles.retryText]}>{error} Tap to try again.</Text></Pressable>
+      : <ActivityIndicator color={colors.blue700} style={{marginTop: 32}} />}
+  </View>;
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
     <TabHeader title="Home" onBell={onNotifications} />
 
@@ -112,19 +138,22 @@ export function DashboardScreen({onGrading, onNotifications, onGradeItem}: Props
         <Text style={[font, styles.chartTitle]}>Engagement</Text>
         <Text style={[font, styles.chartRange]}>7 days</Text>
       </View>
-      <EngagementChart />
+      <EngagementChart data={dashboard.engagement} />
     </Reveal>
 
     <View style={styles.list}>
       <SectionTitle title="To grade" action="See all" onAction={onGrading} />
+      {dashboard.pendingGrades.length === 0 && <Text style={[font, styles.barDay]}>Nothing to grade right now.</Text>}
       {dashboard.pendingGrades.map((g, i) => <Row key={g.id} order={4 + i} onPress={onGradeItem}
-        leading={<Avatar initials="A1" size={44} />} title={g.title} meta={`${g.learner}, ${g.time}`}
+        leading={<Avatar initials={g.learner.split(' ').map(w => w[0]).slice(0, 2).join('')} size={44} />} title={g.title} meta={`${g.learner}, ${g.time}`}
         trailing={<Pill label="Pending" tone="amber" />} />)}
     </View>
   </ScrollView>;
 }
 
 const styles = StyleSheet.create({
+  retry: {margin: spacing.screen, marginTop: 32, padding: 16, borderRadius: 12, backgroundColor: colors.blue50},
+  retryText: {fontSize: 15, color: colors.blue700, fontFamily: fonts.bold},
   screen: {flex: 1, backgroundColor: colors.cream},
   content: {paddingBottom: 28},
   hero: {marginHorizontal: spacing.screen, backgroundColor: colors.blue900, borderRadius: 20, padding: 20, marginBottom: 12, overflow: 'hidden'},

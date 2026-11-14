@@ -54,7 +54,7 @@ export function AnnouncementScreen({onBack, onSent}: {onBack: () => void; onSent
       <Reveal order={1}><Field label="Title" value={title} onChangeText={setTitle} /></Reveal>
       <Reveal order={2}><Field label="Message" value={message} onChangeText={setMessage} placeholder="Write your announcement" multiline /></Reveal>
     </ScrollView>
-    <Footer label="Send announcement" disabled={!ready} onPress={() => { Alert.alert('Sent', `“${title}” went to ${audiences[to].toLowerCase()}.`); onSent(); }} />
+    <Footer label="Send announcement" disabled={!ready} onPress={() => Alert.alert('Not connected yet', 'Announcements are not connected to the server yet, so nothing was sent.')} />
   </View>;
 }
 
@@ -152,7 +152,7 @@ export function CertificateScreen({onBack, onSave}: {onBack: () => void; onSave:
       </Reveal>
       <Reveal order={3} style={styles.assign}><Field label="Assign to course" defaultValue="Data analysis in Excel" /></Reveal>
     </ScrollView>
-    <Footer label="Save certificate" onPress={() => { Alert.alert('Saved', `${template} certificate saved.`); onSave(); }} />
+    <Footer label="Save certificate" onPress={() => Alert.alert('Not connected yet', 'Certificate templates are not saved to the server yet, so nothing was changed.')} />
   </View>;
 }
 

@@ -1,89 +1,53 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useState} from 'react';
 import {BrandMark} from '../../components/BrandLogo';
-import {ActivityIndicator, Alert, Animated, Easing, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputInstance, type TextInputProps, View} from 'react-native';
-import {ApiError, auth} from '../../api/client';
-import {authApi, type Organisation} from '../../api/endpoints';
+import {ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View} from 'react-native';
+import {ApiError} from '../../api/client';
+import {authApi} from '../../api/endpoints';
 import type {User} from '../../api/types';
+import {toUser} from '../../api/mappers';
 import {RoundButton} from '../../components/Catalog';
-import {Icon} from '../../components/Icon';
 import {AppleLogo, GoogleLogo} from '../../components/BrandLogos';
-import {TitleBar} from '../../components/Layout';
 import {colors, fonts, radius, spacing, type} from '../../theme/tokens';
 
 const font = {fontFamily: fonts.family};
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RESEND_SECONDS = 30;
 
 function describe(error: unknown) {
   return error instanceof ApiError ? error.message : 'Can\'t reach yizelearn right now. Check your connection and try again.';
 }
 
-// Google and Apple sign-in need their SDKs and provider keys. Until those are set up, the buttons say so.
+// Google and Apple sign-in need provider keys from the developer accounts. Until those are set up, the buttons say so.
 function notConnected(provider: string) {
-  Alert.alert(provider, `${provider} sign-in is not connected yet. Use your email for now.`);
+  Alert.alert(provider, `${provider} sign-in is not connected yet. Use your email and password for now.`);
 }
 
-type LoginProps = {onBack?: () => void; onSignUp: () => void; onSso: () => void; onSent: (email: string) => void};
-export function LoginScreen({onBack, onSignUp, onSso, onSent}: LoginProps) {
+type LoginProps = {onBack?: () => void; onSignUp: () => void; onSignedIn: (user: User) => void};
+export function LoginScreen({onBack, onSignUp, onSignedIn}: LoginProps) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [challenge, setChallenge] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const valid = EMAIL.test(email.trim());
-
-  const submit = async () => {
-    if (!valid || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      await authApi.requestCode(email.trim());
-      onSent(email.trim());
-    } catch (e) {
-      setError(describe(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-    {onBack && <View style={styles.backRow}><RoundButton icon="back" onPress={onBack} label="Back" /></View>}
-    <BrandMark style={styles.logoImage} />
-    <Text style={[font, styles.title]}>Welcome back</Text>
-    <Text style={[font, styles.subtitle]}>Log in to manage your courses and students</Text>
-
-    <Field label="Email" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" />
-    {!!error && <Text style={[font, styles.error]}>{error}</Text>}
-    <Primary label="Log in" disabled={!valid} busy={busy} onPress={submit} />
-
-    <Divider label="or continue with" />
-    <View style={styles.social}>
-      <SocialButton label="Google" logo={<GoogleLogo />} onPress={() => notConnected('Google')} />
-      {Platform.OS === 'ios' && <SocialButton label="Apple" logo={<AppleLogo color={colors.ink} />} onPress={() => notConnected('Apple')} />}
-    </View>
-
-    <Pressable onPress={onSso} style={({pressed}) => [styles.sso, pressed && styles.pressed]} accessibilityRole="button">
-      <Text style={[font, styles.ssoText]}>Log in with school or work SSO</Text>
-    </Pressable>
-
-    <Text style={[font, styles.footer]}>New here? <Text onPress={onSignUp} style={styles.link}>Create an account</Text></Text>
-  </ScrollView>;
-}
-
-type SignUpProps = {onBack: () => void; onLogin: () => void; onSent: (email: string, name: string) => void};
-export function SignUpScreen({onBack, onLogin, onSent}: SignUpProps) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [agreed, setAgreed] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const ready = name.trim().length >= 2 && EMAIL.test(email.trim()) && agreed;
+  const valid = EMAIL.test(email.trim()) && password.length >= 1;
+  const ready = challenge ? code.length === 6 : valid;
 
   const submit = async () => {
     if (!ready || busy) return;
     setBusy(true);
     setError('');
     try {
-      await authApi.requestCode(email.trim(), name.trim());
-      onSent(email.trim(), name.trim());
+      const result = challenge
+        ? await authApi.mfaVerify(challenge, code.trim())
+        : await authApi.logIn(email.trim(), password);
+      if (result.status === 'two-step') { setChallenge(result.challengeToken); setCode(''); return; }
+      const role = result.user.role;
+      if (role !== 'instructor' && role !== 'administrator') {
+        await authApi.logout();
+        setError('This account is not an instructor account. Use the student app, or ask your admin for instructor access.');
+        return;
+      }
+      onSignedIn(result.user);
     } catch (e) {
       setError(describe(e));
     } finally {
@@ -91,96 +55,39 @@ export function SignUpScreen({onBack, onLogin, onSent}: SignUpProps) {
     }
   };
 
-  return <View style={styles.screen}>
-    <TitleBar title="Create account" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <Field label="Full name" value={name} onChangeText={setName} placeholder="Your full name" autoCapitalize="words" autoComplete="name" textContentType="name" />
-      <Field label="Email" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" />
-      <Pressable onPress={() => setAgreed(v => !v)} style={styles.check} accessibilityRole="checkbox" accessibilityState={{checked: agreed}}>
-        <View style={[styles.box, agreed && styles.boxOn]}>{agreed && <Icon name="check" size={16} color={colors.onSky} />}</View>
-        <Text style={[font, styles.checkText]}>I agree to the Terms and Privacy policy</Text>
-      </Pressable>
-      {!!error && <Text style={[font, styles.error]}>{error}</Text>}
-      <Primary label="Create account" disabled={!ready} busy={busy} onPress={submit} />
+  const forgot = async () => {
+    if (!EMAIL.test(email.trim())) { setError('Enter your email above, then tap Forgot password.'); return; }
+    try { await authApi.forgotPassword(email.trim()); Alert.alert('Check your email', 'If an account exists for that address, we have sent a link to reset your password.'); }
+    catch (e) { setError(describe(e)); }
+  };
 
-      <Divider label="or sign up with" />
+  return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    {onBack && <View style={styles.backRow}><RoundButton icon="back" onPress={onBack} label="Back" /></View>}
+    <BrandMark style={styles.logoImage} />
+    <Text style={[font, styles.title]}>{challenge ? 'Enter your code' : 'Welcome back'}</Text>
+    <Text style={[font, styles.subtitle]}>{challenge ? 'Open your authenticator app and enter the 6-digit code.' : 'Log in to manage your courses and students'}</Text>
+
+    {!challenge && <>
+      <Field label="Email" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" />
+      <Field label="Password" value={password} onChangeText={setPassword} placeholder="Your password" secureTextEntry autoComplete="password" textContentType="password" />
+      <Pressable onPress={forgot} hitSlop={8} accessibilityRole="button"><Text style={[font, styles.forgot]}>Forgot password?</Text></Pressable>
+    </>}
+    {challenge && <Field label="Code" value={code} onChangeText={v => setCode(v.replace(/\D/g, '').slice(0, 6))} placeholder="123456" keyboardType="number-pad" textContentType="oneTimeCode" />}
+    {!!error && <Text style={[font, styles.error]}>{error}</Text>}
+    <Primary label={challenge ? 'Verify' : 'Log in'} disabled={!ready} busy={busy} onPress={submit} />
+
+    {!challenge && <>
+      <Divider label="or continue with" />
       <View style={styles.social}>
         <SocialButton label="Google" logo={<GoogleLogo />} onPress={() => notConnected('Google')} />
         {Platform.OS === 'ios' && <SocialButton label="Apple" logo={<AppleLogo color={colors.ink} />} onPress={() => notConnected('Apple')} />}
       </View>
-
-      <Text style={[font, styles.footer]}>Already have an account? <Text onPress={onLogin} style={styles.link}>Log in</Text></Text>
-    </ScrollView>
-  </View>;
+      <Text style={[font, styles.footer]}>New here? <Text onPress={onSignUp} style={styles.link}>How to get access</Text></Text>
+    </>}
+  </ScrollView>;
 }
 
-type VerifyProps = {email: string; name?: string; onBack: () => void; onVerified: (user: User) => void};
-export function VerifyCodeScreen({email, name, onBack, onVerified}: VerifyProps) {
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [wait, setWait] = useState(RESEND_SECONDS);
-
-  useEffect(() => {
-    if (wait <= 0) return;
-    const timer = setTimeout(() => setWait(w => w - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [wait]);
-
-  const verify = async (value: string) => {
-    if (busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await authApi.verifyCode(email, value);
-      auth.setToken(result.token);
-      onVerified(result.user);
-    } catch (e) {
-      setError(describe(e));
-      setCode('');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resend = async () => {
-    if (wait > 0) return;
-    setError('');
-    try {
-      await authApi.requestCode(email, name);
-      setWait(RESEND_SECONDS);
-    } catch (e) {
-      setError(describe(e));
-    }
-  };
-
-  return <View style={styles.screen}>
-    <View style={styles.backRow}><RoundButton icon="back" onPress={onBack} label="Back" /></View>
-    <View style={styles.codeWrap}>
-      <Text style={[font, styles.title]}>Enter the code</Text>
-      <Text style={[font, styles.subtitle]}>We sent a 6-digit code to{'\n'}<Text style={styles.emailText}>{email}</Text></Text>
-      <CodeInput value={code} onChange={setCode} onComplete={verify} />
-      {!!error && <Text style={[font, styles.error]}>{error}</Text>}
-      <Primary label="Verify" disabled={code.length !== 6} busy={busy} onPress={() => verify(code)} />
-      <Pressable onPress={resend} disabled={wait > 0} style={styles.resend} accessibilityRole="button" accessibilityState={{disabled: wait > 0}}>
-        <Text style={[font, styles.resendText, wait > 0 && styles.muted]}>{wait > 0 ? `Resend code in ${wait}s` : 'Resend code'}</Text>
-      </Pressable>
-    </View>
-  </View>;
-}
-
-// Six boxes that fill as you type. One hidden input does the typing, so the keyboard and autofill work as usual.
-function CodeInput({value, onChange, onComplete}: {value: string; onChange: (value: string) => void; onComplete: (value: string) => void}) {
-  const input = useRef<TextInputInstance>(null);
-  return <Pressable onPress={() => input.current?.focus()} style={styles.codeRow} accessibilityLabel="Enter the 6-digit code">
-    {Array.from({length: 6}, (_, i) => <View key={i} style={[styles.codeBox, i === value.length && styles.codeBoxActive]}><Text style={[font, styles.codeDigit]}>{value[i] ?? ''}</Text></View>)}
-    <TextInput ref={input} value={value} autoFocus maxLength={6} keyboardType="number-pad" autoComplete="sms-otp" textContentType="oneTimeCode"
-      onChangeText={text => { const digits = text.replace(/\D/g, '').slice(0, 6); onChange(digits); if (digits.length === 6) onComplete(digits); }}
-      style={styles.hiddenInput} />
-  </Pressable>;
-}
-
-type FieldProps = Pick<TextInputProps, 'value' | 'onChangeText' | 'placeholder' | 'keyboardType' | 'autoCapitalize' | 'autoComplete' | 'textContentType'> & {label: string};
+type FieldProps = Pick<TextInputProps, 'value' | 'onChangeText' | 'placeholder' | 'keyboardType' | 'autoCapitalize' | 'autoComplete' | 'textContentType' | 'secureTextEntry'> & {label: string};
 function Field({label, ...input}: FieldProps) {
   return <View style={styles.field}>
     <Text style={[font, styles.label]}>{label}</Text>
@@ -206,135 +113,6 @@ function Divider({label}: {label: string}) {
   return <View style={styles.divider}><View style={styles.rule} /><Text style={[font, styles.dividerText]}>{label}</Text><View style={styles.rule} /></View>;
 }
 
-type SsoProps = {onBack: () => void; onEmailLogin: () => void; onSignedIn: (user: User) => void};
-type SsoStep = 'email' | 'confirm' | 'signing';
-const SIGNING_STEPS = ['Opening your organisation’s sign-in', 'Checking your account', 'Setting up yizelearn'];
-
-/** School or work SSO: find the organisation from the email, confirm it, then sign in through its identity provider. */
-export function SsoScreen({onBack, onEmailLogin, onSignedIn}: SsoProps) {
-  const [step, setStep] = useState<SsoStep>('email');
-  const [email, setEmail] = useState('');
-  const [org, setOrg] = useState<Organisation | undefined>();
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const valid = EMAIL.test(email.trim());
-
-  const find = async () => {
-    if (!valid || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      setOrg(await authApi.ssoLookup(email.trim()));
-      setStep('confirm');
-    } catch (e) {
-      setError(describe(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const signIn = async () => {
-    if (!org) return;
-    setStep('signing');
-    try {
-      const result = await authApi.ssoSignIn(org.id, email.trim());
-      auth.setToken(result.token);
-      onSignedIn(result.user);
-    } catch (e) {
-      setError(describe(e));
-      setStep('confirm');
-    }
-  };
-
-  const back = step === 'confirm' ? () => { setStep('email'); setError(''); } : onBack;
-  return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-    {step !== 'signing' && <View style={styles.backRow}><RoundButton icon="back" onPress={back} label="Back" /></View>}
-    {step === 'email' && <FadeIn key="email">
-      <SsoArt icon="shield" />
-      <Text style={[font, styles.title]}>Log in with SSO</Text>
-      <Text style={[font, styles.subtitle]}>Use the email your school or employer gave you.{'\n'}We’ll find your organisation.</Text>
-      <Field label="School or work email" value={email} onChangeText={t => { setEmail(t); setError(''); }} placeholder="you@school.edu.ng" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" />
-      {!!error && <Text style={[font, styles.error]}>{error}</Text>}
-      <Primary label="Find my organisation" disabled={!valid} busy={busy} onPress={find} />
-      <Text style={[font, styles.footer]}>No SSO? <Text onPress={onEmailLogin} style={styles.link}>Log in with an email code</Text></Text>
-    </FadeIn>}
-    {step === 'confirm' && org && <FadeIn key="confirm">
-      <SsoArt icon={org.kind === 'school' ? 'school' : 'building'} />
-      <Text style={[font, styles.title]}>We found it</Text>
-      <Text style={[font, styles.subtitle]}>You’ll sign in on {org.name}’s page,{'\n'}then come straight back here.</Text>
-      <View style={styles.orgCard}>
-        <View style={styles.orgBadge}><Text style={[font, styles.orgInitials]}>{initials(org.name)}</Text></View>
-        <View style={styles.orgCopy}>
-          <Text style={[font, styles.orgName]} numberOfLines={1}>{org.name}</Text>
-          <Text style={[font, styles.orgMeta]} numberOfLines={1}>{org.domain} · {org.kind === 'school' ? 'School' : 'Work'}</Text>
-        </View>
-        <Icon name="check" size={22} color={colors.blue700} />
-      </View>
-      <View style={styles.orgNote}>
-        <Icon name="lock" size={18} color={colors.muted} />
-        <Text style={[font, styles.orgNoteText]}>{org.provider === 'your organisation' ? 'Your organisation handles sign-in' : `Signs in with ${org.provider}`}. yizelearn never sees your password.</Text>
-      </View>
-      {!!error && <Text style={[font, styles.error]}>{error}</Text>}
-      <Primary label={`Continue to ${org.name}`} onPress={signIn} />
-      <Pressable onPress={back} style={styles.resend} accessibilityRole="button"><Text style={[font, styles.resendText]}>Not your organisation? Use another email</Text></Pressable>
-    </FadeIn>}
-    {step === 'signing' && org && <FadeIn key="signing" style={styles.signing}>
-      <SsoArt icon="shield" pulse />
-      <Text style={[font, styles.title]}>Signing you in</Text>
-      <Text style={[font, styles.subtitle]}>Connecting to {org.name}</Text>
-      <SigningSteps />
-    </FadeIn>}
-  </ScrollView>;
-}
-
-function initials(name: string) {
-  return name.split(/\s+/).filter(w => /^[A-Z]/.test(w)).map(w => w[0]).join('').slice(0, 2) || name.slice(0, 2).toUpperCase();
-}
-
-/** Each step of the content fades and lifts in, so moving between steps feels like one flow. */
-function FadeIn({children, style}: {children: React.ReactNode; style?: object}) {
-  const t = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(t, {toValue: 1, duration: 420, easing: Easing.bezier(0.16, 1, 0.3, 1), useNativeDriver: true}).start(); }, [t]);
-  return <Animated.View style={[style, {opacity: t, transform: [{translateY: t.interpolate({inputRange: [0, 1], outputRange: [16, 0]})}]}]}>{children}</Animated.View>;
-}
-
-/** The icon in soft rings used across the app's illustrations; `pulse` sends rings outward while work is in progress. */
-function SsoArt({icon, pulse}: {icon: 'shield' | 'school' | 'building'; pulse?: boolean}) {
-  const pop = useRef(new Animated.Value(0)).current;
-  const wave = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.spring(pop, {toValue: 1, friction: 6, tension: 70, useNativeDriver: true}).start();
-    if (!pulse) return;
-    const loop = Animated.loop(Animated.timing(wave, {toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true}));
-    loop.start();
-    return () => loop.stop();
-  }, [pop, wave, pulse]);
-  return <View style={styles.ssoArt}>
-    {pulse && <Animated.View style={[styles.ssoWave, {opacity: wave.interpolate({inputRange: [0, 1], outputRange: [0.5, 0]}), transform: [{scale: wave.interpolate({inputRange: [0, 1], outputRange: [1, 1.6]})}]}]} />}
-    <Animated.View style={[styles.ssoOuter, {transform: [{scale: pop.interpolate({inputRange: [0, 1], outputRange: [0.7, 1]})}]}]}>
-      <View style={styles.ssoInner}><Icon name={icon} size={34} color={colors.blue700} /></View>
-    </Animated.View>
-    <View style={styles.ssoDotGold} />
-    <View style={styles.ssoDotBlue} />
-    <View style={styles.ssoRing} />
-  </View>;
-}
-
-function SigningSteps() {
-  const [done, setDone] = useState(0);
-  useEffect(() => {
-    if (done >= SIGNING_STEPS.length) return;
-    const timer = setTimeout(() => setDone(d => d + 1), 750);
-    return () => clearTimeout(timer);
-  }, [done]);
-  return <View style={styles.steps}>{SIGNING_STEPS.map((label, i) => <View key={label} style={styles.stepRow}>
-    <View style={[styles.stepDot, i < done && styles.stepDotDone]}>
-      {i < done ? <Icon name="check" size={14} color={colors.white} /> : i === done ? <ActivityIndicator size="small" color={colors.blue700} /> : null}
-    </View>
-    <Text style={[font, styles.stepText, i > done && styles.muted]}>{label}</Text>
-  </View>)}</View>;
-}
-
 const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: colors.cream},
   content: {flexGrow: 1, paddingHorizontal: spacing.screen, paddingTop: 8, paddingBottom: 32},
@@ -349,6 +127,7 @@ const styles = StyleSheet.create({
   primary: {height: spacing.button, borderRadius: radius.button, backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center', marginTop: 4},
   primaryText: {fontSize: type.subheading, color: colors.onSky, fontFamily: fonts.bold},
   dim: {opacity: 0.5},
+  forgot: {fontSize: type.small, color: colors.blue700, fontFamily: fonts.bold, alignSelf: 'flex-end', marginTop: 4, marginBottom: 6},
   pressed: {opacity: 0.8},
   divider: {flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 26},
   rule: {flex: 1, height: 1, backgroundColor: colors.sandLine},

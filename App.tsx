@@ -6,7 +6,9 @@ import {LaunchIntro} from './src/components/LaunchIntro';
 import {ScreenTransition} from './src/components/ScreenTransition';
 import {EmptyState} from './src/components/States';
 import type {InstructorCourse, LessonType} from './src/data/instructor';
-import {LoginScreen, SsoScreen, VerifyCodeScreen} from './src/screens/auth/AuthScreens';
+import {LoginScreen} from './src/screens/auth/AuthScreens';
+import {authApi} from './src/api/endpoints';
+import type {User} from './src/api/types';
 import {
   AssessmentBuilderScreen, CurriculumScreen, PricingScreen, PublishChecklistScreen, QuizBuilderScreen, SetupScreen, UploadVideoScreen,
 } from './src/screens/instructor/CourseBuilderScreens';
@@ -16,7 +18,6 @@ import {DiscussionScreen, GradeSubmissionScreen, GradingScreen, StudentDetailScr
 import {AnnouncementScreen, CertificateScreen, LiveSessionsScreen, MoreScreen, type MoreLink} from './src/screens/instructor/MoreScreens';
 import {ContactSupportScreen, EditProfileScreen, FeedbackSheet, HelpArticleScreen, HelpCentreScreen, HelpSearchScreen, MessageSentScreen, NotificationSettingsScreen, ProfileScreen, PublicProfileScreen, SecurityScreen, SettingsScreen, TicketDetailScreen, TicketsScreen} from './src/screens/instructor/ProfileHelpScreens';
 import {ConversationScreen, MessagesScreen, threads, type Thread} from './src/screens/instructor/MessagesScreens';
-import {auth} from './src/api/client';
 import {colors} from './src/theme/tokens';
 
 type Tab = 'Dashboard' | 'Courses' | 'Students' | 'Messages' | 'More';
@@ -39,7 +40,7 @@ export default function App() {
 
 function InstructorApp() {
   const [page, setPage] = useState<Page>('Login');
-  const [pendingEmail, setPendingEmail] = useState('');
+  const [user, setUser] = useState<User | undefined>();
   const [course, setCourse] = useState<InstructorCourse | undefined>();
   const [thread, setThread] = useState<Thread>(threads[0]);
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
@@ -55,7 +56,7 @@ function InstructorApp() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       const prev = history.current.pop();
-      if (prev && prev !== 'Verify') { setPage(prev); return true; }
+      if (prev) { setPage(prev); return true; }
       if (page !== 'Dashboard' && page !== 'Login') { history.current = []; setPage(tabPages.includes(page) ? 'Dashboard' : 'Login'); return true; }
       return false;
     });
@@ -77,7 +78,7 @@ function InstructorApp() {
     else if (link === 'Profile') nav('Profile');
     else if (link === 'Help') nav('Help');
   };
-  const logout = () => { auth.clear(); setPendingEmail(''); nav('Login'); };
+  const logout = () => { authApi.logout().finally(() => { setUser(undefined); history.current = []; setPage('Login'); }); };
   const onPick = (type: LessonType) => {
     if (type === 'Quiz') nav('Quiz');
     else if (type === 'Assignment') nav('Assessment');
@@ -86,9 +87,7 @@ function InstructorApp() {
 
   const screen = (() => {
     switch (page) {
-      case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by invitation. Log in with your email.')} onSso={() => nav('Sso')} onSent={email => { setPendingEmail(email); nav('Verify'); }} />;
-      case 'Sso': return <SsoScreen onBack={() => nav('Login')} onEmailLogin={() => nav('Login')} onSignedIn={() => nav('Dashboard')} />;
-      case 'Verify': return <VerifyCodeScreen key={pendingEmail} email={pendingEmail} onBack={() => nav('Login')} onVerified={() => nav('Dashboard')} />;
+      case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by your admin. Ask them for an invitation.')} onSignedIn={u => { setUser(u); nav('Dashboard'); }} />;
       case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={() => nav('Grade')} />;
       case 'Courses': return <CoursesScreen onOpen={openCourse} onNew={() => { setCourse(undefined); setDraftTitle('New course'); nav('Setup'); }} onNotifications={() => nav('Notifications')} />;
       case 'Students': return <StudentsScreen onOpen={() => nav('Student')} onNotifications={() => nav('Notifications')} />;
