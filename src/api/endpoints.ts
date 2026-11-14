@@ -31,7 +31,7 @@ export type Dashboard = {range: string; activeLearners: Metric; completion: Metr
 export type GradingItem = {id: string; type: string; learner: {id: string; fullName: string; initials: string}; courseId: string; courseTitle: string; title: string; submittedAt: string; dueAt: string | null; status: 'pending' | 'overdue' | 'graded'};
 export type CourseRow = {id: string; title: string; lessonCount: number; status: 'draft' | 'in_review' | 'changes_requested' | 'published' | 'unpublished'; thumbnailUrl: string | null; learnersCount: number; updatedAt: string};
 export type Page<T> = {data: T[]; page: {nextCursor: string | null; hasMore: boolean; total: number | null}};
-export type LessonRow = {id: string; title: string; type: 'video' | 'document' | 'quiz' | 'assignment'; position: number; isPreview: boolean; isPublished: boolean; durationSec: number | null};
+export type LessonRow = {id: string; title: string; type: 'video' | 'document' | 'quiz' | 'assignment'; position: number; isPreview: boolean; isPublished: boolean; durationSec: number | null; quizId?: string | null; assessmentId?: string | null};
 export type ModuleRow = {id: string; position: number; title: string; lessonCount: number; lessons: LessonRow[]};
 export type Curriculum = {courseId: string; moduleCount: number; lessonCount: number; durationMin: number; modules: ModuleRow[]};
 
@@ -52,7 +52,25 @@ export const messagesApi = {
   markRead: (id: string) => request<void>(`/conversations/${id}/read`, {method: 'POST'}),
 };
 
+export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer';
+export type QuizData = {id: string; title: string; passMarkPct: number; timeLimitMinutes: number | null; maxAttempts: number | null; shuffleQuestions: boolean; questionCount: number; questions: {id: string; type: QuestionType; prompt: string; points: number}[]};
+export type AssessmentData = {id: string; title: string; dueAt: string | null; brief: string | null; plagiarismCheck: boolean; maxAttempts: number | null; maxScore: number};
+export type ProfileData = {fullName: string; headline: string | null; bio: string | null; website: string | null; links: {label: string; url: string}[]; stats: {coursesCount: number; learnersCount: number; ratingAvg: number | null; ratingCount: number}};
+export type SecurityData = {twoStepEnabled: boolean; passwordChangedAt: string | null; sessions: {id: string; deviceName: string; city: string | null; country: string | null; lastActiveAt: string; isCurrent: boolean}[]};
+export type NotificationRow = {id: string; title: string; body: string | null; createdAt: string; read: boolean};
+
 export const instructorApi = {
+  quiz: (id: string) => request<QuizData>(`/instructor/quizzes/${id}`),
+  saveQuiz: (id: string, q: {title: string; passMarkPct: number; timeLimitMinutes: number | null; maxAttempts: number | null; shuffleQuestions: boolean}) => request<QuizData>(`/instructor/quizzes/${id}`, {method: 'PUT', body: q}),
+  addQuestion: (quizId: string, q: {type: QuestionType; prompt: string; points: number; options?: {text: string; isCorrect: boolean}[]; correctBoolean?: boolean; acceptedAnswers?: string[]}) => request<unknown>(`/instructor/quizzes/${quizId}/questions`, {method: 'POST', body: q}),
+  assessment: (id: string) => request<AssessmentData>(`/instructor/assessments/${id}`),
+  saveAssessment: (id: string, a: {title: string; dueAt: string | null; brief: string | null; plagiarismCheck: boolean; maxAttempts: number | null; maxScore: number}) => request<AssessmentData>(`/instructor/assessments/${id}`, {method: 'PUT', body: a}),
+  profile: () => request<ProfileData>('/me/instructor-profile'),
+  saveProfile: (p: {fullName: string; headline: string | null; bio: string | null; website: string | null; links: {label: string; url: string}[]}) => request<ProfileData>('/me/instructor-profile', {method: 'PUT', body: p}),
+  security: () => request<SecurityData>('/me/security'),
+  revokeOthers: () => request<void>('/me/sessions/revoke-others', {method: 'POST'}),
+  notifications: () => request<Page<NotificationRow>>('/notifications?limit=50'),
+  readAll: () => request<void>('/notifications/read-all', {method: 'POST'}),
   announce: (courseId: string, title: string, body: string) => request<{id: string; recipientCount: number | null}>('/instructor/announcements', {method: 'POST', idempotent: true, body: {courseId, title, body}}),
   liveSessions: () => request<Page<LiveRow>>('/instructor/live-sessions?limit=50'),
   scheduleLive: (v: {title: string; startsAt: string; durationMin: number; capacity: number; courseId?: string | null}) => request<LiveRow>('/instructor/live-sessions', {method: 'POST', idempotent: true, body: {kind: 'general', provider: 'zoom', recordingEnabled: false, description: null, minAttendees: null, courseId: null, ...v}}),

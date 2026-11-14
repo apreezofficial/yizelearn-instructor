@@ -46,6 +46,7 @@ function InstructorApp() {
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
   const [feedback, setFeedback] = useState(false);
   const [gradeId, setGradeId] = useState('');
+  const [editId, setEditId] = useState('');
   // Pages visited since the last tab, so Android's back button retraces them.
   const history = useRef<Page[]>([]);
   const nav = (p: Page) => {
@@ -115,9 +116,9 @@ function InstructorApp() {
       case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={id => { setGradeId(id); nav('Grade'); }} onNotifications={() => nav('Notifications')} />;
       case 'Grade': return <GradeSubmissionScreen key={gradeId} id={gradeId} onBack={() => nav('Grading')} onSave={() => nav('Grading')} />;
       case 'Setup': return <SetupScreen courseId={course?.id} title={draftTitle} onBack={() => nav('Courses')} onStep={onStep} />;
-      case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onPick={onPick} />;
-      case 'Quiz': return <QuizBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
-      case 'Assessment': return <AssessmentBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
+      case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onEdit={(kind, id) => { setEditId(id); nav(kind === 'quiz' ? 'Quiz' : 'Assessment'); }} />;
+      case 'Quiz': return <QuizBuilderScreen key={editId} quizId={editId} onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
+      case 'Assessment': return <AssessmentBuilderScreen key={editId} assessmentId={editId} onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
       case 'Upload': return <UploadVideoScreen onBack={() => nav('Curriculum')} onDone={() => nav('Curriculum')} />;
       case 'Pricing': return <PricingScreen courseId={course?.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
       case 'Publish': return <PublishChecklistScreen courseId={course?.id} onBack={() => nav('Setup')} onFix={target => (target === 'curriculum' ? nav('Curriculum') : target === 'pricing' ? nav('Pricing') : target === 'basics' ? nav('Basics') : Alert.alert('Thumbnail', 'Uploading a thumbnail needs a photo picker, which this app does not have yet.'))} onPublished={() => nav('Courses')} />;

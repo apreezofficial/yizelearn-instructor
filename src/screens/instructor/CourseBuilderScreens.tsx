@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
-import {instructorApi, type Checklist, type Curriculum, type SetupData} from '../../api/endpoints';
+import {instructorApi, type AssessmentData, type Checklist, type Curriculum, type QuestionType, type QuizData, type SetupData} from '../../api/endpoints';
 import {ProgressBar} from '../../components/Chalkboard';
 import {CourseArt} from '../../components/Catalog';
 import {Icon} from '../../components/Icon';
@@ -83,7 +83,7 @@ export function BasicsScreen({courseId, onBack, onSave}: {courseId: string; onBa
 }
 
 /** Curriculum: modules with their lessons, plus the add-lesson sheet. */
-export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string; onBack: () => void; onPick: (type: LessonType) => void}) {
+export function CurriculumScreen({courseId, onBack, onEdit}: {courseId?: string; onBack: () => void; onEdit: (kind: 'quiz' | 'assessment', id: string) => void}) {
   const [closed, setClosed] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
   const [moduleSheet, setModuleSheet] = useState(false);
@@ -133,11 +133,11 @@ export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string;
             <Icon name={expanded ? 'down' : 'next'} size={20} color={colors.ink} />
           </Pressable>
           {expanded && module.lessons.length === 0 && <Text style={[font, styles.lessonType, styles.lessonEmpty]}>No lessons in this module yet.</Text>}
-          {expanded && module.lessons.map(lesson => <View key={lesson.id} style={styles.lesson}>
+          {expanded && module.lessons.map(lesson => <Pressable key={lesson.id} disabled={!(lesson.quizId || lesson.assessmentId)} onPress={() => lesson.quizId ? onEdit('quiz', lesson.quizId) : lesson.assessmentId ? onEdit('assessment', lesson.assessmentId) : undefined} style={styles.lesson} accessibilityRole="button">
             <Icon name="handle" size={16} color={colors.muted} />
             <Text style={[font, styles.lessonTitle]}>{lesson.title}</Text>
             <Text style={[font, styles.lessonType]}>{lesson.type}</Text>
-          </View>)}
+          </Pressable>)}
         </Reveal>;
       })}
       {courseId && <Pressable onPress={() => setModuleSheet(true)} style={styles.addModule} accessibilityRole="button">
@@ -186,57 +186,113 @@ export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string;
 }
 
 /** Quiz builder: pass mark, time limit, and the list of questions. */
-export function QuizBuilderScreen({onBack, onSave}: {onBack: () => void; onSave: () => void}) {
+const qTypes: {key: QuestionType; label: string}[] = [{key: 'multiple_choice', label: 'Multiple choice'}, {key: 'true_false', label: 'True or false'}, {key: 'short_answer', label: 'Short answer'}];
+
+export function QuizBuilderScreen({quizId, onBack, onSave}: {quizId: string; onBack: () => void; onSave: () => void}) {
+  const {data, error, reload} = useLoaded<QuizData>(() => instructorApi.quiz(quizId), [quizId]);
+  const [pass, setPass] = useState<string | null>(null);
+  const [limit, setLimit] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [qType, setQType] = useState<QuestionType>('multiple_choice');
+  const [prompt, setPrompt] = useState('');
+  const [optionsText, setOptionsText] = useState('');
+  const [correct, setCorrect] = useState('1');
+  const [truth, setTruth] = useState(true);
+  const [answers, setAnswers] = useState('');
+  const shownPass = pass ?? (data ? String(data.passMarkPct) : '');
+  const shownLimit = limit ?? (data?.timeLimitMinutes != null ? String(data.timeLimitMinutes) : '');
+  const save = async () => {
+    if (!data) return;
+    setBusy(true);
+    try { await instructorApi.saveQuiz(quizId, {title: data.title, passMarkPct: Number(shownPass), timeLimitMinutes: shownLimit ? Number(shownLimit) : null, maxAttempts: data.maxAttempts, shuffleQuestions: data.shuffleQuestions}); onSave(); }
+    catch (e) { Alert.alert('Could not save the quiz', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
+  const options = optionsText.split('\n').map(t => t.trim()).filter(Boolean);
+  const questionOk = prompt.trim().length >= 3 && (qType === 'multiple_choice' ? options.length >= 2 && Number(correct) >= 1 && Number(correct) <= options.length : qType === 'short_answer' ? answers.trim().length > 0 : true);
+  const addQuestion = async () => {
+    setBusy(true);
+    try {
+      await instructorApi.addQuestion(quizId, {type: qType, prompt: prompt.trim(), points: 1,
+        ...(qType === 'multiple_choice' ? {options: options.map((t, i) => ({text: t, isCorrect: i + 1 === Number(correct)}))} : qType === 'true_false' ? {correctBoolean: truth} : {acceptedAnswers: answers.split(',').map(a => a.trim()).filter(Boolean)})});
+      setAdding(false); setPrompt(''); setOptionsText(''); setAnswers(''); reload();
+    } catch (e) { Alert.alert('Could not add the question', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
   return <View style={styles.screen}>
-    <StackHeader title="Module 2 quiz" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <StackHeader title={data?.title ?? 'Quiz'} onBack={onBack} />
+    {!data ? <Loading error={error} reload={reload} /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.two}>
-        <View style={styles.flex}><Field label="Pass mark" defaultValue="70%" /></View>
-        <View style={styles.flex}><Field label="Time limit" defaultValue="None" /></View>
+        <View style={styles.flex}><Field label="Pass mark (%)" value={shownPass} onChangeText={v => setPass(v.replace(/\D/g, ''))} keyboardType="numeric" /></View>
+        <View style={styles.flex}><Field label="Time limit (min)" value={shownLimit} onChangeText={v => setLimit(v.replace(/\D/g, ''))} keyboardType="numeric" placeholder="None" /></View>
       </View>
-      <SectionTitle title="Questions" note={`${quizQuestions.length} total`} />
-      {quizQuestions.map((q, i) => <Reveal key={q.id} order={i}><View style={[styles.card, styles.question]}>
+      <SectionTitle title="Questions" note={`${data.questionCount} total`} />
+      {data.questions.length === 0 && <Text style={[font, styles.note]}>No questions yet.</Text>}
+      {data.questions.map((q, i) => <Reveal key={q.id} order={i}><View style={[styles.card, styles.question]}>
         <View style={styles.flex}>
-          <Text style={[font, styles.cardTitle]}>{q.text}</Text>
-          <Text style={[font, styles.kind]}>{q.kind}</Text>
+          <Text style={[font, styles.cardTitle]}>{q.prompt}</Text>
+          <Text style={[font, styles.kind]}>{qTypes.find(t => t.key === q.type)?.label ?? q.type}</Text>
         </View>
-        <Icon name="handle" size={18} color={colors.muted} />
       </View></Reveal>)}
-      <Pressable onPress={() => notConnected('Adding questions')} style={styles.addQuestion} accessibilityRole="button">
+      <Pressable onPress={() => setAdding(true)} style={styles.addQuestion} accessibilityRole="button">
         <Text style={[font, styles.addText]}>+ Add question</Text>
       </Pressable>
-    </ScrollView>
-    <Footer label="Save quiz" onPress={onSave} />
+    </ScrollView>}
+    <Footer label={busy ? 'Saving…' : 'Save quiz'} disabled={!data || busy || !(Number(shownPass) >= 1 && Number(shownPass) <= 100)} onPress={save} />
+    <Modal visible={adding} transparent animationType="fade" onRequestClose={() => setAdding(false)}>
+      <Pressable style={styles.scrim} onPress={() => setAdding(false)} accessibilityLabel="Close" />
+      <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
+        <Text style={[font, styles.sheetTitle]}>New question</Text>
+        <View style={styles.chips}>{qTypes.map(t => <Pressable key={t.key} onPress={() => setQType(t.key)} style={[styles.chip, qType === t.key && styles.chipOn]} accessibilityRole="button"><Text style={[font, styles.chipText, qType === t.key && styles.chipTextOn]}>{t.label}</Text></Pressable>)}</View>
+        <Field label="Question" value={prompt} onChangeText={setPrompt} multiline />
+        {qType === 'multiple_choice' && <>
+          <Field label="Options (one per line)" value={optionsText} onChangeText={setOptionsText} multiline />
+          <Field label={`Correct option number (1 to ${Math.max(2, options.length)})`} value={correct} onChangeText={v => setCorrect(v.replace(/\D/g, ''))} keyboardType="numeric" />
+        </>}
+        {qType === 'true_false' && <View style={styles.switchRow}><Text style={[font, styles.switchText]}>The statement is true</Text><Switch value={truth} onValueChange={setTruth} trackColor={{true: colors.blue700, false: colors.sandLine}} /></View>}
+        {qType === 'short_answer' && <Field label="Accepted answers (comma separated)" value={answers} onChangeText={setAnswers} />}
+        <Footer label={busy ? 'Adding…' : 'Add question'} disabled={!questionOk || busy} onPress={addQuestion} />
+      </ScrollView>
+    </Modal>
   </View>;
 }
 
-/** Assessment builder: title, due date, brief, plagiarism check and attempts. */
-export function AssessmentBuilderScreen({onBack, onSave}: {onBack: () => void; onSave: () => void}) {
-  const [plagiarism, setPlagiarism] = useState(true);
-  const [attempts, setAttempts] = useState(Number(assessmentBrief.attempts));
+export function AssessmentBuilderScreen({assessmentId, onBack, onSave}: {assessmentId: string; onBack: () => void; onSave: () => void}) {
+  const {data, error, reload} = useLoaded<AssessmentData>(() => instructorApi.assessment(assessmentId), [assessmentId]);
+  const [title, setTitle] = useState<string | null>(null);
+  const [brief, setBrief] = useState<string | null>(null);
+  const [due, setDue] = useState<string | null>(null);
+  const [max, setMax] = useState<string | null>(null);
+  const [check, setCheck] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const t = title ?? data?.title ?? '';
+  const b = brief ?? data?.brief ?? '';
+  const d = due ?? data?.dueAt?.slice(0, 10) ?? '';
+  const m = max ?? (data ? String(data.maxScore) : '');
+  const c = check ?? data?.plagiarismCheck ?? false;
+  const dueOk = d === '' || !Number.isNaN(new Date(`${d}T23:59:59Z`).getTime());
+  const valid = t.trim().length >= 3 && Number(m) >= 1 && dueOk;
+  const save = async () => {
+    if (!data) return;
+    setBusy(true);
+    try { await instructorApi.saveAssessment(assessmentId, {title: t.trim(), dueAt: d ? `${d}T23:59:59Z` : null, brief: b.trim() || null, plagiarismCheck: c, maxAttempts: data.maxAttempts, maxScore: Number(m)}); onSave(); }
+    catch (e) { Alert.alert('Could not save', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
   return <View style={styles.screen}>
-    <StackHeader title="Assessment" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <Field label="Title" defaultValue={assessmentBrief.title} />
-      <SelectField label="Due date" value={assessmentBrief.dueDate} onPress={() => notConnected('Picking a date')} />
-      <Field label="Brief" defaultValue={assessmentBrief.brief} placeholder="Describe what learners should submit" multiline />
-      <View style={styles.switchRow}>
-        <Text style={[font, styles.switchText]}>Check for plagiarism</Text>
-        <Switch value={plagiarism} onValueChange={setPlagiarism} trackColor={{true: colors.blue700, false: colors.sandLine}} />
-      </View>
-      <View style={styles.switchRow}>
-        <Text style={[font, styles.switchText]}>Set number of{'\n'}attempts</Text>
-        <Pressable onPress={() => setAttempts(a => (a % 5) + 1)} style={styles.attempts} accessibilityRole="button" accessibilityLabel={`${attempts} attempts, tap to change`}>
-          <Text style={[font, styles.attemptsText]}>{attempts}</Text>
-          <Icon name="down" size={16} color={colors.ink} />
-        </Pressable>
-      </View>
-    </ScrollView>
-    <Footer label="Save assessment" onPress={onSave} />
+    <StackHeader title="Assignment" onBack={onBack} />
+    {!data ? <Loading error={error} reload={reload} /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <Field label="Title" value={t} onChangeText={setTitle} />
+      <Field label="Instructions" value={b} onChangeText={setBrief} multiline />
+      <Field label="Due date (YYYY-MM-DD, optional)" value={d} onChangeText={setDue} placeholder="2026-12-31" />
+      <Field label="Maximum score" value={m} onChangeText={v => setMax(v.replace(/\D/g, ''))} keyboardType="numeric" />
+      <View style={styles.switchRow}><Text style={[font, styles.switchText]}>Check for plagiarism</Text><Switch value={c} onValueChange={setCheck} trackColor={{true: colors.blue700, false: colors.sandLine}} /></View>
+    </ScrollView>}
+    <Footer label={busy ? 'Saving…' : 'Save assignment'} disabled={!data || !valid || busy} onPress={save} />
   </View>;
 }
 
-/** Video upload: a picker area and each file's upload state. */
 export function UploadVideoScreen({onBack, onDone}: {onBack: () => void; onDone: () => void}) {
   return <View style={styles.screen}>
     <StackHeader title="Upload video" onBack={onBack} />
@@ -343,6 +399,7 @@ const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: colors.cream},
   note: {fontSize: 15, color: colors.muted, marginTop: 16, lineHeight: 22},
   lessonEmpty: {paddingVertical: 12},
+  sheetScroll: {maxHeight: '85%', backgroundColor: colors.cream, borderTopLeftRadius: 24, borderTopRightRadius: 24},
   chips: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 10},
   chip: {minHeight: 40, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, justifyContent: 'center'},
   chipOn: {backgroundColor: colors.blue700, borderColor: colors.blue700},
