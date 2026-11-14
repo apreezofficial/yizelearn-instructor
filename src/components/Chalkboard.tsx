@@ -1,3 +1,4 @@
+import type {ColorValue} from 'react-native';
 import React, {useEffect, useRef} from 'react';
 import {Animated, Easing, StyleSheet, View, type ViewStyle} from 'react-native';
 import {colors, radius} from '../theme/tokens';
@@ -7,7 +8,7 @@ export function ChalkCard({children, style}: {children: React.ReactNode; style?:
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function ProgressBar({value, track = colors.sandLine, fill = colors.sky, height = 6}: {value: number; track?: string; fill?: string; height?: number}) {
+export function ProgressBar({value, track = colors.sandLine, fill = colors.sky, height = 6}: {value: number; track?: ColorValue; fill?: ColorValue; height?: number}) {
   const clamped = Math.max(0, Math.min(100, value));
   // Fills from empty when the bar appears, and glides to new values after that.
   const width = useRef(new Animated.Value(0)).current;

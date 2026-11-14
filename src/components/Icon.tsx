@@ -62,7 +62,8 @@ import File01Icon from '@hugeicons/core-free-icons/File01Icon';
 import SecurityCheckIcon from '@hugeicons/core-free-icons/SecurityCheckIcon';
 import Building03Icon from '@hugeicons/core-free-icons/Building03Icon';
 import School01Icon from '@hugeicons/core-free-icons/School01Icon';
-import {colors} from '../theme/tokens';
+import {useColorScheme, type ColorValue} from 'react-native';
+import {colors, resolveColor} from '../theme/tokens';
 
 // App icon names mapped to Hugeicons. `filled` renders the same outline icon with a solid fill.
 const icons = {
@@ -135,8 +136,9 @@ const icons = {
 
 export type IconName = keyof typeof icons;
 
-export function Icon({name, size = 24, color = colors.ink, strokeWidth = 1.8, solid}: {name: IconName; size?: number; color?: string; strokeWidth?: number; solid?: boolean}) {
+export function Icon({name, size = 24, color: token = colors.ink, strokeWidth = 1.8, solid}: {name: IconName; size?: number; color?: ColorValue; strokeWidth?: number; solid?: boolean}) {
   const {icon, filled: mapped} = icons[name] as {icon: typeof StarIcon; filled?: boolean};
   const filled = solid ?? mapped;
+  const color = resolveColor(token, useColorScheme());
   return <HugeiconsIcon icon={icon} size={size} color={color} strokeWidth={strokeWidth} fill={filled ? color : 'none'} />;
 }

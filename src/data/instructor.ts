@@ -1,6 +1,10 @@
 // Sample instructor data until the instructor API is live.
-export const instructorName = 'Tunde Bello';
-export const instructorInitials = 'TB';
+// The signed-in instructor, set at log-in. Read it at render time so screens show who is actually signed in.
+export const identity = {name: '', initials: ''};
+export function setIdentity(name: string) {
+  identity.name = name;
+  identity.initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
 
 export const dashboard = {
   activeLearners: 1284,

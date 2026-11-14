@@ -1,61 +1,163 @@
-import {API_BASE_URL, ApiError, request} from './client';
-import type {AssignmentSubmission, Course, DashboardSummary, Lesson, Module, Paginated, Payment, User} from './types';
+import {ApiError, request} from './client';
+import {session} from './session';
+import {toUser} from './mappers';
+import type {ApiAuthResult} from './contract';
+import type {User} from './types';
 
-// Sign-in and sign-up are one flow: the user enters an email, gets a 6-digit code, and enters it. No passwords.
-// Until the backend is live (the base URL is still the placeholder), dev builds sign in without it:
-// any email "sends" a code and any 6 digits log you in.
-const MOCK_AUTH = __DEV__ && API_BASE_URL.includes('example.com');
-const mockUser = (email: string, name?: string): User => ({id: 'mock-user', name: name || email.split('@')[0], email, role: 'instructor'});
+// Instructor app endpoints, from the live contract (https://16-170-53-222.sslip.io/docs).
+// Sign-in is email and password, with a 6-digit authenticator code when two-step is on.
+export type SignInResult = {status: 'signed-in'; user: User} | {status: 'two-step'; challengeToken: string};
 
-export const authApi = {
-  requestCode: (email: string, name?: string) => (MOCK_AUTH ? Promise.resolve() : request<void>('/auth/code/request', {method: 'POST', body: {email, name}})),
-  verifyCode: (email: string, code: string) => (MOCK_AUTH
-    ? Promise.resolve({token: 'mock-token', user: mockUser(email)})
-    : request<{token: string; user: User}>('/auth/code/verify', {method: 'POST', body: {email, code}})),
-  me: () => request<User>('/auth/me'),
-  logout: () => request<void>('/auth/logout', {method: 'POST'}),
-  // School and work SSO: look up the organisation from the email's domain, then sign in through its identity provider.
-  ssoLookup: (email: string) => (MOCK_AUTH ? mockOrganisation(email) : request<Organisation>(`/auth/sso/lookup?email=${encodeURIComponent(email)}`)),
-  ssoSignIn: (organisationId: string, email: string) => (MOCK_AUTH
-    ? new Promise<{token: string; user: User}>(resolve => setTimeout(() => resolve({token: 'mock-token', user: mockUser(email)}), 2400))
-    : request<{token: string; user: User}>('/auth/sso/complete', {method: 'POST', body: {organisationId, email}})),
-};
-
-export type Organisation = {id: string; name: string; domain: string; kind: 'school' | 'work'; provider: string};
-
-const PUBLIC_DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'live.com', 'proton.me', 'aol.com'];
-const KNOWN: Record<string, Omit<Organisation, 'domain'>> = {
-  'unilag.edu.ng': {id: 'unilag', name: 'University of Lagos', kind: 'school', provider: 'Microsoft'},
-  'ui.edu.ng': {id: 'ui', name: 'University of Ibadan', kind: 'school', provider: 'Google Workspace'},
-  'covenantuniversity.edu.ng': {id: 'cu', name: 'Covenant University', kind: 'school', provider: 'Microsoft'},
-  'andela.com': {id: 'andela', name: 'Andela', kind: 'work', provider: 'Okta'},
-};
-
-// Dev stand-in for the lookup: personal email providers have no SSO; any other domain is treated as an organisation.
-function mockOrganisation(email: string): Promise<Organisation> {
-  const domain = email.split('@')[1]?.toLowerCase() ?? '';
-  return new Promise((resolve, reject) => setTimeout(() => {
-    if (PUBLIC_DOMAINS.includes(domain)) { reject(new ApiError(`${domain} is a personal email. Use the email your school or employer gave you.`, 404)); return; }
-    const known = KNOWN[domain];
-    const school = /\.(edu|ac|sch)(\.|$)/.test(domain);
-    const base = domain.split('.')[0];
-    resolve(known ? {...known, domain} : {id: base, name: base.charAt(0).toUpperCase() + base.slice(1), domain, kind: school ? 'school' : 'work', provider: 'your organisation'});
-  }, 900));
+async function finish(result: ApiAuthResult): Promise<SignInResult> {
+  if (result.status === 'mfa_required') return {status: 'two-step', challengeToken: result.mfa.challengeToken};
+  await session.set(result.tokens);
+  return {status: 'signed-in', user: toUser(result.tokens.user)};
 }
 
-export const dashboardApi = { instructor: () => request<DashboardSummary>('/instructor/dashboard'), administrator: () => request<DashboardSummary>('/administrator/dashboard') };
-
-export const coursesApi = {
-  list: (params?: {status?: string; page?: number}) => request<Paginated<Course>>(`/courses${params?.status ? `?status=${encodeURIComponent(params.status)}` : ''}`),
-  get: (id: string) => request<Course>(`/courses/${id}`),
-  modules: (id: string) => request<Module[]>(`/courses/${id}/modules`),
-  create: (payload: Pick<Course, 'title'> & Partial<Course>) => request<Course>('/courses', {method: 'POST', body: payload}),
-  update: (id: string, payload: Partial<Course>) => request<Course>(`/courses/${id}`, {method: 'PATCH', body: payload}),
+export const authApi = {
+  logIn: async (email: string, password: string) => finish(await request<ApiAuthResult>('/auth/login', {method: 'POST', anonymous: true, body: {email, password, deviceName: 'yizelearn instructor app', platform: 'ios'}})),
+  mfaVerify: async (challengeToken: string, code: string) => finish(await request<ApiAuthResult>('/auth/mfa/verify', {method: 'POST', anonymous: true, body: {challengeToken, code}})),
+  forgotPassword: (email: string) => request<void>('/auth/password/forgot', {method: 'POST', anonymous: true, body: {email}}),
+  ssoDiscover: (email: string) => request<{available: boolean; name?: string | null}>('/auth/sso/discover', {method: 'POST', anonymous: true, body: {email}}),
+  logout: async () => {
+    const tokens = session.get();
+    try { if (tokens) await request<void>('/auth/logout', {method: 'POST', body: {refreshToken: tokens.refreshToken}}); } catch { /* signed out here either way */ }
+    await session.clear();
+  },
 };
 
-export const learningApi = { myCourses: () => request<Paginated<Course>>('/me/courses'), lesson: (courseId: string, lessonId: string) => request<Lesson>(`/courses/${courseId}/lessons/${lessonId}`), completeLesson: (courseId: string, lessonId: string) => request<void>(`/courses/${courseId}/lessons/${lessonId}/complete`, {method: 'POST'}) };
-export const gradingApi = { queue: () => request<Paginated<AssignmentSubmission>>('/grading/submissions'), get: (id: string) => request<AssignmentSubmission>(`/grading/submissions/${id}`), grade: (id: string, score: number, feedback: string) => request<AssignmentSubmission>(`/grading/submissions/${id}`, {method: 'POST', body: {score, feedback}}) };
-export const usersApi = { list: (page = 1) => request<Paginated<User>>(`/users?page=${page}`), get: (id: string) => request<User>(`/users/${id}`), invite: (email: string, role: string) => request<void>('/users/invite', {method: 'POST', body: {email, role}}) };
-export const paymentsApi = { list: () => request<Paginated<Payment>>('/payments'), checkout: (courseId: string, method: string) => request<{reference: string}>('/payments/checkout', {method: 'POST', body: {courseId, method}}) };
-export const notificationsApi = { list: () => request<Paginated<{id: string; title: string; body: string; read: boolean}>>('/notifications'), markRead: (id: string) => request<void>(`/notifications/${id}/read`, {method: 'POST'}) };
+const qs = (params: Record<string, string | number | undefined>) => {
+  const parts = Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+};
+export type HelpCategory = {id: string; slug: string; name: string; iconKey: string | null; articleCount: number};
+export type HelpArticleCard = {id: string; title: string};
+export type HelpArticle = HelpArticleCard & {lead?: string | null; blocks: {type: string; text?: string | null; items?: string[]}[]; shareUrl: string};
+export type TicketTopic = 'payments' | 'account' | 'courses' | 'certificates' | 'quizzes_and_grades' | 'technical' | 'course_upload' | 'other';
+export const helpApi = {
+  categories: () => request<Page<HelpCategory>>(`/help/categories${qs({limit: 50, audience: 'instructor'})}`),
+  articles: (query: {q?: string; categoryId?: string} = {}) => request<Page<HelpArticleCard>>(query.categoryId ? `/help/categories/${query.categoryId}/articles${qs({limit: 50})}` : `/help/articles${qs({limit: 50, q: query.q, audience: 'instructor'})}`),
+  article: (id: string) => request<HelpArticle>(`/help/articles/${id}`),
+  rate: (id: string, helpful: boolean) => request<void>(`/help/articles/${id}/feedback`, {method: 'POST', body: {helpful}}),
+};
+export const ticketsApi = {
+  create: (v: {topic: TicketTopic; subject: string; message: string}) => request<{id: string; number: number}>('/support/tickets', {method: 'POST', idempotent: true, body: v}),
+};
 
+// File uploads. Small files go up in one request; videos go up in parts. Each part is sent to its own signed address.
+export type PickedFile = {uri: string; name: string; type: string; size: number};
+type UploadSlot = {id: string; mode: 'single' | 'multipart'; single?: {url: string; method: string; headers?: Record<string, string>}; multipart?: {partSizeBytes: number; partCount: number}};
+export const uploadsApi = {
+  upload: async (file: PickedFile, purpose: 'lesson_video' | 'lesson_document' | 'course_thumbnail' | 'avatar', onProgress?: (pct: number) => void): Promise<string> => {
+    const slot = await request<UploadSlot>('/uploads', {method: 'POST', idempotent: true, body: {purpose, fileName: file.name, contentType: file.type, sizeBytes: file.size}});
+    const blob = await (await fetch(file.uri)).blob();
+    if (slot.mode === 'single' && slot.single) {
+      const put = await fetch(slot.single.url, {method: slot.single.method || 'PUT', headers: {'Content-Type': file.type, ...(slot.single.headers ?? {})}, body: blob});
+      if (!put.ok) throw new ApiError('The upload did not finish. Try again.', put.status);
+      await request<unknown>(`/uploads/${slot.id}/complete`, {method: 'POST', body: {}});
+      onProgress?.(100);
+      return slot.id;
+    }
+    const size = slot.multipart?.partSizeBytes ?? 16 * 1024 * 1024;
+    const count = Math.max(1, Math.ceil(file.size / size));
+    const parts: {partNumber: number; etag: string; sizeBytes: number}[] = [];
+    for (let first = 1; first <= count; first += 50) {
+      const numbers = Array.from({length: Math.min(50, count - first + 1)}, (_, i) => first + i);
+      const {urls} = await request<{urls: {partNumber: number; url: string}[]}>(`/uploads/${slot.id}/parts`, {method: 'POST', body: {partNumbers: numbers}});
+      for (const u of urls) {
+        const chunk = blob.slice((u.partNumber - 1) * size, Math.min(file.size, u.partNumber * size));
+        const put = await fetch(u.url, {method: 'PUT', headers: {'Content-Type': 'application/octet-stream'}, body: chunk});
+        if (!put.ok) throw new ApiError('The upload did not finish. Try again.', put.status);
+        parts.push({partNumber: u.partNumber, etag: (put.headers.get('etag') ?? '').replace(/"/g, ''), sizeBytes: chunk.size});
+        onProgress?.(Math.round((parts.length / count) * 100));
+      }
+    }
+    await request<unknown>(`/uploads/${slot.id}/complete`, {method: 'POST', body: {parts}});
+    return slot.id;
+  },
+};
+
+export type Metric = {value: number; changePct: number | null; changePts: number | null};
+export type Dashboard = {range: string; activeLearners: Metric; completion: Metric; toGrade: {count: number; overdue: number}; engagement: {date: string; value: number}[]; toGradePreview: GradingItem[]};
+export type GradingItem = {id: string; type: string; learner: {id: string; fullName: string; initials: string}; courseId: string; courseTitle: string; title: string; submittedAt: string; dueAt: string | null; status: 'pending' | 'overdue' | 'graded'};
+export type CourseRow = {id: string; title: string; lessonCount: number; status: 'draft' | 'in_review' | 'changes_requested' | 'published' | 'unpublished'; thumbnailUrl: string | null; learnersCount: number; updatedAt: string};
+export type Page<T> = {data: T[]; page: {nextCursor: string | null; hasMore: boolean; total: number | null}};
+export type LessonRow = {id: string; title: string; type: 'video' | 'document' | 'quiz' | 'assignment'; position: number; isPreview: boolean; isPublished: boolean; durationSec: number | null; quizId?: string | null; assessmentId?: string | null};
+export type ModuleRow = {id: string; position: number; title: string; lessonCount: number; lessons: LessonRow[]};
+export type Curriculum = {courseId: string; moduleCount: number; lessonCount: number; durationMin: number; modules: ModuleRow[]};
+
+export type SetupData = {course: {id: string; title: string; status: CourseRow['status']; thumbnailUrl: string | null}; steps: {key: 'basics' | 'curriculum' | 'pricing' | 'publish'; done: boolean; summary: string}[]; doneCount: number; total: number};
+export type Checklist = {ready: number; total: number; canPublish: boolean; items: {key: string; label: string; ok: boolean; fixTarget: 'curriculum' | 'pricing' | 'basics' | 'thumbnail' | null}[]};
+export type Money = {amountMinor: number; currency: string};
+export type PricingData = {price: Money | null; listPrice: Money | null; discount: {enabled: boolean; promoCode: string | null; percent: number | null; validUntil: string | null} | null};
+export type CourseBasics = {title: string; subtitle: string | null; summary: string | null; about: string | null};
+
+export type LiveRow = {id: string; title: string; startsAt: string; durationMin: number; status: string; capacity: number; bookedCount: number};
+
+export type ConversationRow = {id: string; counterpart: {id: string; fullName: string; initials: string}; lastMessage: {text?: string; sentAt?: string} | null; unread: boolean; updatedAt: string};
+export type MessageRow = {id: string; text: string; isMine: boolean; sentAt: string};
+export const messagesApi = {
+  conversations: () => request<Page<ConversationRow>>('/conversations?limit=50'),
+  messages: (id: string) => request<Page<MessageRow>>(`/conversations/${id}/messages?limit=100`),
+  send: (id: string, text: string) => request<MessageRow>(`/conversations/${id}/messages`, {method: 'POST', body: {text, clientMessageId: `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`}}),
+  markRead: (id: string) => request<void>(`/conversations/${id}/read`, {method: 'POST'}),
+};
+
+export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer';
+export type QuizData = {id: string; title: string; passMarkPct: number; timeLimitMinutes: number | null; maxAttempts: number | null; shuffleQuestions: boolean; questionCount: number; questions: {id: string; type: QuestionType; prompt: string; points: number}[]};
+export type AssessmentData = {id: string; title: string; dueAt: string | null; brief: string | null; plagiarismCheck: boolean; maxAttempts: number | null; maxScore: number};
+export type ProfileData = {fullName: string; headline: string | null; bio: string | null; website: string | null; links: {label: string; url: string}[]; stats: {coursesCount: number; learnersCount: number; ratingAvg: number | null; ratingCount: number}};
+export type SecurityData = {twoStepEnabled: boolean; passwordChangedAt: string | null; sessions: {id: string; deviceName: string; city: string | null; country: string | null; lastActiveAt: string; isCurrent: boolean}[]};
+export type NotificationRow = {id: string; title: string; body: string | null; createdAt: string; read: boolean};
+
+export type Thread = {id: string; courseId: string; lessonTitle: string; title: string | null; body: string; author: {fullName: string; initials: string}; replyCount: number; hasInstructorReply: boolean; createdAt: string};
+export type Reply = {id: string; body: string; author: {fullName: string}; isInstructor: boolean; isMe: boolean; createdAt: string};
+export type StudentDetail = {learner: {id: string; fullName: string; initials: string}; course: {id: string; title: string}; enrolledAt: string; progress: {pct: number; completedLessons: number; totalLessons: number}; grades: {title: string; scorePct: number | null; status: string}[]};
+export type CertTemplate = {style: 'classic' | 'modern' | 'minimal'; signerName: string | null; signerTitle: string | null};
+export type PrefRow = {type: string; enabled: boolean; channels: string[]; mandatory: boolean};
+
+export const instructorApi = {
+  attachVideo: (lessonId: string, uploadId: string) => request<unknown>(`/instructor/lessons/${lessonId}/video`, {method: 'PUT', body: {uploadId}}),
+  attachDocument: (lessonId: string, uploadId: string) => request<unknown>(`/instructor/lessons/${lessonId}/document`, {method: 'PUT', body: {uploadId}}),
+  setThumbnail: (courseId: string, uploadId: string) => request<unknown>(`/instructor/courses/${courseId}/thumbnail`, {method: 'PUT', body: {uploadId}}),
+  discussions: () => request<Page<Thread>>('/instructor/discussions?limit=50'),
+  thread: (id: string) => request<{thread: Thread; replies: Reply[]}>(`/discussions/${id}`),
+  reply: (id: string, body: string) => request<Reply>(`/discussions/${id}/replies`, {method: 'POST', body: {body}}),
+  student: (learnerId: string, courseId?: string) => request<StudentDetail>(`/instructor/students/${learnerId}${courseId ? `?courseId=${courseId}` : ''}`),
+  certificate: (courseId: string) => request<CertTemplate>(`/instructor/courses/${courseId}/certificate-template`),
+  saveCertificate: (courseId: string, t: {style: CertTemplate['style']; signerName: string | null; signerTitle: string | null}) => request<CertTemplate>(`/instructor/courses/${courseId}/certificate-template`, {method: 'PUT', body: {...t, logoUploadId: null, signatureUploadId: null}}),
+  prefs: () => request<{items: PrefRow[]}>('/me/notification-preferences'),
+  savePrefs: (items: {type: string; enabled: boolean; channels: string[]}[]) => request<{items: PrefRow[]}>('/me/notification-preferences', {method: 'PUT', body: {items}}),
+  quiz: (id: string) => request<QuizData>(`/instructor/quizzes/${id}`),
+  saveQuiz: (id: string, q: {title: string; passMarkPct: number; timeLimitMinutes: number | null; maxAttempts: number | null; shuffleQuestions: boolean}) => request<QuizData>(`/instructor/quizzes/${id}`, {method: 'PUT', body: q}),
+  addQuestion: (quizId: string, q: {type: QuestionType; prompt: string; points: number; options?: {text: string; isCorrect: boolean}[]; correctBoolean?: boolean; acceptedAnswers?: string[]}) => request<unknown>(`/instructor/quizzes/${quizId}/questions`, {method: 'POST', body: q}),
+  assessment: (id: string) => request<AssessmentData>(`/instructor/assessments/${id}`),
+  saveAssessment: (id: string, a: {title: string; dueAt: string | null; brief: string | null; plagiarismCheck: boolean; maxAttempts: number | null; maxScore: number}) => request<AssessmentData>(`/instructor/assessments/${id}`, {method: 'PUT', body: a}),
+  profile: () => request<ProfileData>('/me/instructor-profile'),
+  saveProfile: (p: {fullName: string; headline: string | null; bio: string | null; website: string | null; links: {label: string; url: string}[]}) => request<ProfileData>('/me/instructor-profile', {method: 'PUT', body: p}),
+  security: () => request<SecurityData>('/me/security'),
+  revokeOthers: () => request<void>('/me/sessions/revoke-others', {method: 'POST'}),
+  notifications: () => request<Page<NotificationRow>>('/notifications?limit=50'),
+  readAll: () => request<void>('/notifications/read-all', {method: 'POST'}),
+  announce: (courseId: string, title: string, body: string) => request<{id: string; recipientCount: number | null}>('/instructor/announcements', {method: 'POST', idempotent: true, body: {courseId, title, body}}),
+  liveSessions: () => request<Page<LiveRow>>('/instructor/live-sessions?limit=50'),
+  scheduleLive: (v: {title: string; startsAt: string; durationMin: number; capacity: number; courseId?: string | null}) => request<LiveRow>('/instructor/live-sessions', {method: 'POST', idempotent: true, body: {kind: 'general', provider: 'zoom', recordingEnabled: false, description: null, minAttendees: null, courseId: null, ...v}}),
+  liveJoinLink: (id: string) => request<{url?: string; joinUrl?: string}>(`/instructor/live-sessions/${id}/join-link`),
+  setup: (courseId: string) => request<SetupData>(`/instructor/courses/${courseId}/setup`),
+  checklist: (courseId: string) => request<Checklist>(`/instructor/courses/${courseId}/publish-checklist`),
+  pricing: (courseId: string) => request<PricingData>(`/instructor/courses/${courseId}/pricing`),
+  savePricing: (courseId: string, body: {price: Money; listPrice?: Money | null; discount?: {enabled: boolean; promoCode?: string; percent?: number; validUntil?: string} | null}) => request<PricingData>(`/instructor/courses/${courseId}/pricing`, {method: 'PUT', body}),
+  course: (courseId: string) => request<CourseBasics & Record<string, unknown>>(`/instructor/courses/${courseId}`),
+  saveCourse: (courseId: string, body: Partial<CourseBasics>) => request<CourseBasics>(`/instructor/courses/${courseId}`, {method: 'PATCH', body}),
+  dashboard: (range: '7d' | '30d' = '7d') => request<Dashboard>(`/instructor/dashboard?range=${range}`),
+  courses: () => request<Page<CourseRow>>('/instructor/courses?limit=100'),
+  createCourse: (title: string) => request<CourseRow & Record<string, unknown>>('/instructor/courses', {method: 'POST', idempotent: true, body: {title}}),
+  curriculum: (courseId: string) => request<Curriculum>(`/instructor/courses/${courseId}/curriculum`),
+  addModule: (courseId: string, title: string) => request<ModuleRow>(`/instructor/courses/${courseId}/modules`, {method: 'POST', body: {title}}),
+  addLesson: (moduleId: string, type: LessonRow['type'], title: string, isPreview = false) => request<LessonRow>(`/instructor/modules/${moduleId}/lessons`, {method: 'POST', body: {type, title, isPreview}}),
+  publish: (courseId: string) => request<unknown>(`/instructor/courses/${courseId}/publish`, {method: 'POST'}),
+  grading: () => request<Page<GradingItem>>('/instructor/submissions?limit=50'),
+  submission: (id: string) => request<{id: string; learner: {fullName: string}; files: {fileName: string; sizeBytes: number}[]; note: string | null; score: number | null; maxScore: number; feedback: string | null; similarity?: {score?: number; percent?: number} | null}>(`/instructor/submissions/${id}`),
+  grade: (submissionId: string, score: number, feedback: string) => request<unknown>(`/instructor/submissions/${submissionId}/grade`, {method: 'PUT', body: {score, feedback, rubricScores: []}}),
+  students: () => request<Page<{learner: {id: string; fullName: string; initials: string}; course: {id: string; title: string}; progressPct: number; status: string | null; lastActiveAt: string | null}>>('/instructor/students?limit=50'),
+};

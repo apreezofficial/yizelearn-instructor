@@ -1,10 +1,10 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
-import {dashboard} from '../../data/instructor';
-import {colors, radius, spacing, type} from '../../theme/tokens';
+import {ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View} from 'react-native';
+import {instructorApi, type Dashboard, type GradingItem} from '../../api/endpoints';
+import {colors, radius, resolveColor, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, IconBadge, Pill, Reveal, Row, SectionTitle, TabHeader} from './shared';
 
-type Props = {onGrading: () => void; onNotifications: () => void; onGradeItem: () => void};
+type Props = {onGrading: () => void; onNotifications: () => void; onGradeItem: (id: string) => void};
 
 const outExpo = Easing.bezier(0.16, 1, 0.3, 1);
 const BAR_MAX = 72;
@@ -37,8 +37,9 @@ export function Drift({style, range, duration}: {style: object; range: number; d
 }
 
 /** Engagement chart: bars grow in one after another; tap a bar to see its count. */
-function EngagementChart() {
-  const data = dashboard.engagement;
+function EngagementChart({data}: {data: {day: string; value: number}[]}) {
+  const scheme = useColorScheme();
+  if (data.length === 0) return <Text style={[font, styles.barDay]}>No activity in this period yet.</Text>;
   const max = Math.max(...data.map(d => d.value));
   const [selected, setSelected] = useState(data.findIndex(d => d.value === max));
   const grow = useRef(data.map(() => new Animated.Value(0))).current;
@@ -64,19 +65,45 @@ function EngagementChart() {
       const target = Math.max(BAR_MIN, (d.value / max) * BAR_MAX);
       return <Pressable key={i} onPress={() => select(i)} style={styles.barCol} accessibilityRole="button" accessibilityLabel={`${d.day}: ${d.value} active learners`} accessibilityState={{selected: i === selected}}>
         {i === selected && <Animated.View style={[styles.barBubble, {opacity: bubble, transform: [{scale: bubble.interpolate({inputRange: [0, 1], outputRange: [0.6, 1]})}, {translateY: bubble.interpolate({inputRange: [0, 1], outputRange: [6, 0]})}]}]}>
-          <Text style={[styles.barBubbleText, font]}>{d.value}</Text>
+          <Text style={[font, styles.barBubbleText]}>{d.value}</Text>
         </Animated.View>}
         <Animated.View style={[styles.bar, {
           height: grow[i].interpolate({inputRange: [0, 1], outputRange: [0, target]}),
-          backgroundColor: active[i].interpolate({inputRange: [0, 1], outputRange: ['#C6DAF2', colors.blue700]}),
+          backgroundColor: active[i].interpolate({inputRange: [0, 1], outputRange: [resolveColor(colors.blue100, scheme), resolveColor(colors.blue700, scheme)]}),
         }]} />
-        <Text style={[styles.barDay, font, i === selected && styles.barDayOn]}>{d.day}</Text>
+        <Text style={[font, styles.barDay, i === selected && styles.barDayOn]}>{d.day}</Text>
       </Pressable>;
     })}
   </View>;
 }
 
+type DashView = {activeLearners: number; activeChange: string; completion: number; completionChange: string; toGrade: number; overdue: number; engagement: {day: string; value: number}[]; pendingGrades: {id: string; title: string; learner: string; time: string}[]};
+const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const signed = (n: number | null | undefined, suffix: string) => (n == null ? '' : `${n > 0 ? '+' : ''}${Math.round(n * 10) / 10}${suffix}`);
+const ago = (iso: string) => {
+  const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000);
+  return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+};
+const toView = (d: Dashboard): DashView => ({
+  activeLearners: d.activeLearners.value,
+  activeChange: signed(d.activeLearners.changePct, '% this month'),
+  completion: d.completion.value,
+  completionChange: signed(d.completion.changePts, ' pts'),
+  toGrade: d.toGrade.count,
+  overdue: d.toGrade.overdue,
+  engagement: d.engagement.map(p => ({day: DAYS[new Date(p.date).getDay()], value: p.value})),
+  pendingGrades: d.toGradePreview.map((g: GradingItem) => ({id: g.id, title: g.title, learner: g.learner.fullName, time: ago(g.submittedAt)})),
+});
+
 export function DashboardScreen({onGrading, onNotifications, onGradeItem}: Props) {
+  const [dashboard, setDashboard] = useState<DashView | null>(null);
+  const [error, setError] = useState('');
+  const load = () => { setError(''); instructorApi.dashboard().then(d => setDashboard(toView(d)), e => setError(e instanceof Error ? e.message : 'Could not load your dashboard.')); };
+  useEffect(load, []);
+  if (!dashboard) return <View style={styles.screen}><TabHeader title="Home" onBell={onNotifications} />
+    {error ? <Pressable onPress={load} style={styles.retry} accessibilityRole="button"><Text style={[font, styles.retryText]}>{error} Tap to try again.</Text></Pressable>
+      : <ActivityIndicator color={colors.blue700} style={{marginTop: 32}} />}
+  </View>;
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
     <TabHeader title="Home" onBell={onNotifications} />
 
@@ -84,46 +111,49 @@ export function DashboardScreen({onGrading, onNotifications, onGradeItem}: Props
       <Drift style={styles.heroBig} range={8} duration={3200} />
       <Drift style={styles.heroSmall} range={-6} duration={2600} />
       <Drift style={styles.heroDot} range={5} duration={2000} />
-      <Text style={[styles.heroLabel, font]}>Active learners</Text>
-      <CountUp value={dashboard.activeLearners} style={[styles.heroValue, font]} />
-      <View style={styles.heroPill}><Text style={[styles.heroPillText, font]}>{dashboard.activeChange}</Text></View>
+      <Text style={[font, styles.heroLabel]}>Active learners</Text>
+      <CountUp value={dashboard.activeLearners} style={[font, styles.heroValue]} />
+      <View style={styles.heroPill}><Text style={[font, styles.heroPillText]}>{dashboard.activeChange}</Text></View>
     </Reveal>
 
     <View style={styles.pair}>
       <Reveal order={1} style={styles.stat}>
-        <View style={styles.statHead}><IconBadge name="chart" size={34} /><Text style={[styles.statLabel, font]}>Completion</Text></View>
+        <View style={styles.statHead}><IconBadge name="chart" size={34} /><Text style={[font, styles.statLabel]}>Completion</Text></View>
         <View style={styles.statFoot}>
-          <CountUp value={dashboard.completion} suffix="%" style={[styles.statValue, font]} />
-          <Text style={[styles.statNote, font]}>{dashboard.completionChange}</Text>
+          <CountUp value={dashboard.completion} suffix="%" style={[font, styles.statValue]} />
+          <Text style={[font, styles.statNote]}>{dashboard.completionChange}</Text>
         </View>
       </Reveal>
       <Reveal order={2} style={styles.stat}>
-        <View style={styles.statHead}><IconBadge name="award" size={34} /><Text style={[styles.statLabel, font]}>To grade</Text></View>
+        <View style={styles.statHead}><IconBadge name="award" size={34} /><Text style={[font, styles.statLabel]}>To grade</Text></View>
         <View style={styles.statFoot}>
-          <CountUp value={dashboard.toGrade} style={[styles.statValue, font]} />
-          <Text style={[styles.statNote, font]}>{dashboard.overdue} overdue</Text>
+          <CountUp value={dashboard.toGrade} style={[font, styles.statValue]} />
+          <Text style={[font, styles.statNote]}>{dashboard.overdue} overdue</Text>
         </View>
       </Reveal>
     </View>
 
     <Reveal order={3} style={styles.chart}>
       <View style={styles.chartHead}>
-        <Text style={[styles.chartTitle, font]}>Engagement</Text>
-        <Text style={[styles.chartRange, font]}>7 days</Text>
+        <Text style={[font, styles.chartTitle]}>Engagement</Text>
+        <Text style={[font, styles.chartRange]}>7 days</Text>
       </View>
-      <EngagementChart />
+      <EngagementChart data={dashboard.engagement} />
     </Reveal>
 
     <View style={styles.list}>
       <SectionTitle title="To grade" action="See all" onAction={onGrading} />
-      {dashboard.pendingGrades.map((g, i) => <Row key={g.id} order={4 + i} onPress={onGradeItem}
-        leading={<Avatar initials="A1" size={44} />} title={g.title} meta={`${g.learner}, ${g.time}`}
+      {dashboard.pendingGrades.length === 0 && <Text style={[font, styles.barDay]}>Nothing to grade right now.</Text>}
+      {dashboard.pendingGrades.map((g, i) => <Row key={g.id} order={4 + i} onPress={() => onGradeItem(g.id)}
+        leading={<Avatar initials={g.learner.split(' ').map(w => w[0]).slice(0, 2).join('')} size={44} />} title={g.title} meta={`${g.learner}, ${g.time}`}
         trailing={<Pill label="Pending" tone="amber" />} />)}
     </View>
   </ScrollView>;
 }
 
 const styles = StyleSheet.create({
+  retry: {margin: spacing.screen, marginTop: 32, padding: 16, borderRadius: 12, backgroundColor: colors.blue50},
+  retryText: {fontSize: 15, color: colors.blue700, fontFamily: fonts.bold},
   screen: {flex: 1, backgroundColor: colors.cream},
   content: {paddingBottom: 28},
   hero: {marginHorizontal: spacing.screen, backgroundColor: colors.blue900, borderRadius: 20, padding: 20, marginBottom: 12, overflow: 'hidden'},
@@ -131,26 +161,26 @@ const styles = StyleSheet.create({
   heroSmall: {position: 'absolute', right: 14, top: 84, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.blue700},
   heroDot: {position: 'absolute', right: 94, top: 112, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.marigold},
   heroLabel: {fontSize: type.small, color: colors.white, opacity: 0.85},
-  heroValue: {fontSize: 40, color: colors.white, fontWeight: '800', marginVertical: 8, fontVariant: ['tabular-nums']},
+  heroValue: {fontSize: 40, color: colors.white, fontFamily: fonts.bold, marginVertical: 8, fontVariant: ['tabular-nums']},
   heroPill: {alignSelf: 'flex-start', backgroundColor: colors.sand, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6},
-  heroPillText: {fontSize: type.caption, color: colors.ink, fontWeight: '700'},
+  heroPillText: {fontSize: type.caption, color: colors.ink, fontFamily: fonts.bold},
   pair: {flexDirection: 'row', gap: 10, paddingHorizontal: spacing.screen, marginBottom: 12},
   stat: {flex: 1, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 14},
   statHead: {flexDirection: 'row', alignItems: 'center', gap: 10},
   statLabel: {fontSize: type.small, color: colors.muted},
   statFoot: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 12},
-  statValue: {fontSize: type.title, color: colors.ink, fontWeight: '800', fontVariant: ['tabular-nums']},
-  statNote: {fontSize: type.caption, color: colors.success, fontWeight: '700', marginBottom: 4},
+  statValue: {fontSize: type.title, color: colors.ink, fontFamily: fonts.bold, fontVariant: ['tabular-nums']},
+  statNote: {fontSize: type.caption, color: colors.success, fontFamily: fonts.bold, marginBottom: 4},
   chart: {marginHorizontal: spacing.screen, backgroundColor: colors.barBg, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 16},
   chartHead: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  chartTitle: {fontSize: type.label, color: colors.ink, fontWeight: '800'},
+  chartTitle: {fontSize: type.label, color: colors.ink, fontFamily: fonts.bold},
   chartRange: {fontSize: type.caption, color: colors.muted},
   bars: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 130, marginTop: 6},
   barCol: {alignItems: 'center', flex: 1, gap: 6, justifyContent: 'flex-end', height: '100%'},
   bar: {width: 30, borderRadius: 5},
   barBubble: {backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3},
-  barBubbleText: {fontSize: type.tab, color: colors.white, fontWeight: '700'},
+  barBubbleText: {fontSize: type.tab, color: colors.white, fontFamily: fonts.bold},
   barDay: {fontSize: type.tab, color: colors.muted},
-  barDayOn: {color: colors.ink, fontWeight: '800'},
+  barDayOn: {color: colors.ink, fontFamily: fonts.bold},
   list: {paddingHorizontal: spacing.screen},
 });

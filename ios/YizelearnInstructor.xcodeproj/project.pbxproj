@@ -10,16 +10,16 @@
 		0C80B921A6F3F58F76C31292 /* libPods-YizelearnInstructor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-YizelearnInstructor.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		1EAD4D15D1DEE6F2C9D99F66 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
-		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
-		761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EF /* SceneDelegate.swift */; };
-		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		AA1234567890000000000001 /* Charmonman-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AA1234567890000000000002 /* Charmonman-Regular.ttf */; };
-		4C8269E1C4F04269A7B54CA3 /* Figtree_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 700EBC8AF0F44DF9AF159D95 /* Figtree_600SemiBold.ttf */; };
-		968E9191755B4374A2BCD0B0 /* Figtree_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5A86DE3140814D4EB9610A7D /* Figtree_400Regular.ttf */; };
-		7E22BA960A9A42459A98D242 /* BricolageGrotesque_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 47933012AEF342609EDD8C24 /* BricolageGrotesque_600SemiBold.ttf */; };
 		336694FED8994580A9A66D95 /* BricolageGrotesque_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C4D13A2BCA4E417FA116630F /* BricolageGrotesque_700Bold.ttf */; };
 		38421DE829C7409081C45CC2 /* Figtree_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2567D1A58FCE432792894A1D /* Figtree_700Bold.ttf */; };
+		4C8269E1C4F04269A7B54CA3 /* Figtree_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 700EBC8AF0F44DF9AF159D95 /* Figtree_600SemiBold.ttf */; };
 		64EBB06E802C46B4BB1B6886 /* Figtree_500Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 34081D931EED4B5290FCF65F /* Figtree_500Medium.ttf */; };
+		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EF /* SceneDelegate.swift */; };
+		7E22BA960A9A42459A98D242 /* BricolageGrotesque_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 47933012AEF342609EDD8C24 /* BricolageGrotesque_600SemiBold.ttf */; };
+		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		968E9191755B4374A2BCD0B0 /* Figtree_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5A86DE3140814D4EB9610A7D /* Figtree_400Regular.ttf */; };
+		AA1234567890000000000001 /* Charmonman-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AA1234567890000000000002 /* Charmonman-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,20 +27,20 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = YizelearnInstructor/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = YizelearnInstructor/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = YizelearnInstructor/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2567D1A58FCE432792894A1D /* Figtree_700Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Figtree_700Bold.ttf; path = ../src/assets/fonts/Figtree_700Bold.ttf; sourceTree = "<group>"; };
+		34081D931EED4B5290FCF65F /* Figtree_500Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Figtree_500Medium.ttf; path = ../src/assets/fonts/Figtree_500Medium.ttf; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-YizelearnInstructor.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-YizelearnInstructor.debug.xcconfig"; path = "Target Support Files/Pods-YizelearnInstructor/Pods-YizelearnInstructor.debug.xcconfig"; sourceTree = "<group>"; };
+		47933012AEF342609EDD8C24 /* BricolageGrotesque_600SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BricolageGrotesque_600SemiBold.ttf; path = ../src/assets/fonts/BricolageGrotesque_600SemiBold.ttf; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-YizelearnInstructor.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-YizelearnInstructor.release.xcconfig"; path = "Target Support Files/Pods-YizelearnInstructor/Pods-YizelearnInstructor.release.xcconfig"; sourceTree = "<group>"; };
+		5A86DE3140814D4EB9610A7D /* Figtree_400Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Figtree_400Regular.ttf; path = ../src/assets/fonts/Figtree_400Regular.ttf; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-YizelearnInstructor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-YizelearnInstructor.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		700EBC8AF0F44DF9AF159D95 /* Figtree_600SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Figtree_600SemiBold.ttf; path = ../src/assets/fonts/Figtree_600SemiBold.ttf; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = YizelearnInstructor/AppDelegate.swift; sourceTree = "<group>"; };
 		761780EE2CA45674006654EF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = YizelearnInstructor/SceneDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = YizelearnInstructor/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		AA1234567890000000000002 /* Charmonman-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Charmonman-Regular.ttf"; path = "YizelearnInstructor/Fonts/Charmonman-Regular.ttf"; sourceTree = "<group>"; };
+		C4D13A2BCA4E417FA116630F /* BricolageGrotesque_700Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BricolageGrotesque_700Bold.ttf; path = ../src/assets/fonts/BricolageGrotesque_700Bold.ttf; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		700EBC8AF0F44DF9AF159D95 /* Figtree_600SemiBold.ttf */ = {isa = PBXFileReference; name = "Figtree_600SemiBold.ttf"; path = "../src/assets/fonts/Figtree_600SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		5A86DE3140814D4EB9610A7D /* Figtree_400Regular.ttf */ = {isa = PBXFileReference; name = "Figtree_400Regular.ttf"; path = "../src/assets/fonts/Figtree_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		47933012AEF342609EDD8C24 /* BricolageGrotesque_600SemiBold.ttf */ = {isa = PBXFileReference; name = "BricolageGrotesque_600SemiBold.ttf"; path = "../src/assets/fonts/BricolageGrotesque_600SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		C4D13A2BCA4E417FA116630F /* BricolageGrotesque_700Bold.ttf */ = {isa = PBXFileReference; name = "BricolageGrotesque_700Bold.ttf"; path = "../src/assets/fonts/BricolageGrotesque_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		2567D1A58FCE432792894A1D /* Figtree_700Bold.ttf */ = {isa = PBXFileReference; name = "Figtree_700Bold.ttf"; path = "../src/assets/fonts/Figtree_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		34081D931EED4B5290FCF65F /* Figtree_500Medium.ttf */ = {isa = PBXFileReference; name = "Figtree_500Medium.ttf"; path = "../src/assets/fonts/Figtree_500Medium.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,17 +108,8 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				3B4392A12AC88292D35C810B /* Pods-YizelearnInstructor.debug.xcconfig */,
-				5709B34CF0A7D63546082F79 /* Pods-YizelearnInstructor.release.xcconfig */,
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		88CFE1B9A6F049DC98E573BB /* Resources */ = {
-			isa = "PBXGroup";
+			isa = PBXGroup;
 			children = (
 				700EBC8AF0F44DF9AF159D95 /* Figtree_600SemiBold.ttf */,
 				5A86DE3140814D4EB9610A7D /* Figtree_400Regular.ttf */,
@@ -128,8 +119,17 @@
 				34081D931EED4B5290FCF65F /* Figtree_500Medium.ttf */,
 			);
 			name = Resources;
-			sourceTree = "<group>";
 			path = "";
+			sourceTree = "<group>";
+		};
+		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				3B4392A12AC88292D35C810B /* Pods-YizelearnInstructor.debug.xcconfig */,
+				5709B34CF0A7D63546082F79 /* Pods-YizelearnInstructor.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
