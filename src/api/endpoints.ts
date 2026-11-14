@@ -35,7 +35,19 @@ export type LessonRow = {id: string; title: string; type: 'video' | 'document' |
 export type ModuleRow = {id: string; position: number; title: string; lessonCount: number; lessons: LessonRow[]};
 export type Curriculum = {courseId: string; moduleCount: number; lessonCount: number; durationMin: number; modules: ModuleRow[]};
 
+export type SetupData = {course: {id: string; title: string; status: CourseRow['status']; thumbnailUrl: string | null}; steps: {key: 'basics' | 'curriculum' | 'pricing' | 'publish'; done: boolean; summary: string}[]; doneCount: number; total: number};
+export type Checklist = {ready: number; total: number; canPublish: boolean; items: {key: string; label: string; ok: boolean; fixTarget: 'curriculum' | 'pricing' | 'basics' | 'thumbnail' | null}[]};
+export type Money = {amountMinor: number; currency: string};
+export type PricingData = {price: Money | null; listPrice: Money | null; discount: {enabled: boolean; promoCode: string | null; percent: number | null; validUntil: string | null} | null};
+export type CourseBasics = {title: string; subtitle: string | null; summary: string | null; about: string | null};
+
 export const instructorApi = {
+  setup: (courseId: string) => request<SetupData>(`/instructor/courses/${courseId}/setup`),
+  checklist: (courseId: string) => request<Checklist>(`/instructor/courses/${courseId}/publish-checklist`),
+  pricing: (courseId: string) => request<PricingData>(`/instructor/courses/${courseId}/pricing`),
+  savePricing: (courseId: string, body: {price: Money; listPrice?: Money | null; discount?: {enabled: boolean; promoCode?: string; percent?: number; validUntil?: string} | null}) => request<PricingData>(`/instructor/courses/${courseId}/pricing`, {method: 'PUT', body}),
+  course: (courseId: string) => request<CourseBasics & Record<string, unknown>>(`/instructor/courses/${courseId}`),
+  saveCourse: (courseId: string, body: Partial<CourseBasics>) => request<CourseBasics>(`/instructor/courses/${courseId}`, {method: 'PATCH', body}),
   dashboard: (range: '7d' | '30d' = '7d') => request<Dashboard>(`/instructor/dashboard?range=${range}`),
   courses: () => request<Page<CourseRow>>('/instructor/courses?limit=100'),
   createCourse: (title: string) => request<CourseRow & Record<string, unknown>>('/instructor/courses', {method: 'POST', idempotent: true, body: {title}}),

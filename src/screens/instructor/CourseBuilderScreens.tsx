@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
-import {instructorApi, type Curriculum} from '../../api/endpoints';
+import {instructorApi, type Checklist, type Curriculum, type SetupData} from '../../api/endpoints';
 import {ProgressBar} from '../../components/Chalkboard';
 import {CourseArt} from '../../components/Catalog';
 import {Icon} from '../../components/Icon';
@@ -10,35 +10,75 @@ import {Field, font, Footer, IconBadge, Pill, Reveal, SectionTitle, SelectField,
 
 const notConnected = (what: string) => Alert.alert(what, `${what} is not connected yet.`);
 
+function useLoaded<T>(load: () => Promise<T>, deps: unknown[]) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState('');
+  const run = useCallback(() => { setError(''); load().then(setData, e => setError(e instanceof Error ? e.message : 'Could not load this.')); }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(run, [run]);
+  return {data, error, reload: run};
+}
+function Loading({error, reload}: {error: string; reload: () => void}) {
+  return error ? <Pressable onPress={reload} accessibilityRole="button"><Text style={[font, styles.note]}>{error} Tap to try again.</Text></Pressable> : <ActivityIndicator color={colors.blue700} style={{marginTop: 24}} />;
+}
+const stepTitles: Record<string, string> = {basics: 'Course details', curriculum: 'Curriculum', pricing: 'Pricing', publish: 'Publish'};
+
 /** Course setup: the checklist of steps for a draft course. */
-export function SetupScreen({title, onBack, onStep}: {title: string; onBack: () => void; onStep: (key: string) => void}) {
-  const done = setupSteps.filter(s => s.done).length;
+export function SetupScreen({courseId, title, onBack, onStep}: {courseId?: string; title: string; onBack: () => void; onStep: (key: string) => void}) {
+  const {data, error, reload} = useLoaded<SetupData | null>(() => (courseId ? instructorApi.setup(courseId) : Promise.resolve(null)), [courseId]);
+  const steps = data?.steps ?? [];
+  const next = steps.find(x => !x.done)?.key ?? 'publish';
+  const status = data?.course.status;
   return <View style={styles.screen}>
     <StackHeader title="Course setup" onBack={onBack} />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.courseCard}>
         <CourseArt index={0} size={72} />
         <View style={styles.courseCopy}>
-          <Text style={[font, styles.courseTitle]}>{title}</Text>
-          <View style={styles.draft}><Pill label="Draft" tone="grey" /></View>
-          <View style={styles.progressRow}>
-            <View style={styles.flex}><ProgressBar value={(done / setupSteps.length) * 100} fill={colors.blue700} track={colors.sand} height={5} /></View>
-            <Text style={[font, styles.count]}>{done} of {setupSteps.length}</Text>
-          </View>
+          <Text style={[font, styles.courseTitle]}>{data?.course.title ?? title}</Text>
+          <View style={styles.draft}><Pill label={status === 'published' ? 'Published' : status === 'in_review' ? 'In review' : 'Draft'} tone={status === 'published' ? 'green' : status === 'in_review' ? 'amber' : 'grey'} /></View>
+          {data && <View style={styles.progressRow}>
+            <View style={styles.flex}><ProgressBar value={(data.doneCount / Math.max(1, data.total)) * 100} fill={colors.blue700} track={colors.sand} height={5} /></View>
+            <Text style={[font, styles.count]}>{data.doneCount} of {data.total}</Text>
+          </View>}
         </View>
       </View>
-      {setupSteps.map((step, i) => <Reveal key={step.key} order={i + 1}><Pressable onPress={() => onStep(step.key)} style={({pressed}) => [styles.card, styles.step, pressed && styles.pressed]} accessibilityRole="button">
+      {!data && <Loading error={error} reload={reload} />}
+      {steps.map((step, i) => <Reveal key={step.key} order={i + 1}><Pressable onPress={() => onStep(step.key)} style={({pressed}) => [styles.card, styles.step, pressed && styles.pressed]} accessibilityRole="button">
         {step.done
           ? <View style={[styles.mark, styles.markDone]}><Icon name="check" size={16} color={colors.white} strokeWidth={2.4} /></View>
           : <View style={styles.mark}><Text style={[font, styles.markNumber]}>{i + 1}</Text></View>}
         <View style={styles.flex}>
-          <Text style={[font, styles.cardTitle]}>{step.title}</Text>
-          <Text style={[font, styles.cardMeta]}>{step.detail}</Text>
+          <Text style={[font, styles.cardTitle]}>{stepTitles[step.key] ?? step.key}</Text>
+          <Text style={[font, styles.cardMeta]}>{step.summary}</Text>
         </View>
         <Icon name="next" size={18} color={colors.ink} />
       </Pressable></Reveal>)}
     </ScrollView>
-    <Footer label="Continue to pricing" onPress={() => onStep('pricing')} />
+    <Footer label={`Continue to ${(stepTitles[next] ?? 'next step').toLowerCase()}`} disabled={!data} onPress={() => onStep(next)} />
+  </View>;
+}
+
+/** Course details: the title and descriptions learners see in the catalogue. */
+export function BasicsScreen({courseId, onBack, onSave}: {courseId: string; onBack: () => void; onSave: () => void}) {
+  const {data, error, reload} = useLoaded(() => instructorApi.course(courseId), [courseId]);
+  const [edit, setEdit] = useState<{title?: string; subtitle?: string; summary?: string; about?: string}>({});
+  const [busy, setBusy] = useState(false);
+  const val = (k: 'title' | 'subtitle' | 'summary' | 'about') => edit[k] ?? (data?.[k] as string | null | undefined) ?? '';
+  const save = async () => {
+    setBusy(true);
+    try { await instructorApi.saveCourse(courseId, {title: val('title').trim(), subtitle: val('subtitle').trim() || null, summary: val('summary').trim() || null, about: val('about').trim() || null}); onSave(); }
+    catch (e) { Alert.alert('Could not save', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
+  return <View style={styles.screen}>
+    <StackHeader title="Course details" onBack={onBack} />
+    {!data ? <Loading error={error} reload={reload} /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <Field label="Title" value={val('title')} onChangeText={v => setEdit(e => ({...e, title: v}))} />
+      <Field label="Subtitle" value={val('subtitle')} onChangeText={v => setEdit(e => ({...e, subtitle: v}))} />
+      <Field label="Short summary" value={val('summary')} onChangeText={v => setEdit(e => ({...e, summary: v}))} multiline />
+      <Field label="About this course" value={val('about')} onChangeText={v => setEdit(e => ({...e, about: v}))} multiline />
+    </ScrollView>}
+    <Footer label={busy ? 'Saving…' : 'Save details'} disabled={!data || busy || val('title').trim().length < 3} onPress={save} />
   </View>;
 }
 
@@ -203,44 +243,76 @@ export function UploadVideoScreen({onBack, onDone}: {onBack: () => void; onDone:
 }
 
 /** Pricing: course price, optional launch discount with promo code and end date. */
-export function PricingScreen({onBack, onSave}: {onBack: () => void; onSave: () => void}) {
-  const [discount, setDiscount] = useState(true);
+export function PricingScreen({courseId, onBack, onSave}: {courseId?: string; onBack: () => void; onSave: () => void}) {
+  const {data, error, reload} = useLoaded(() => (courseId ? instructorApi.pricing(courseId) : Promise.resolve(null)), [courseId]);
+  const [price, setPrice] = useState<string | null>(null);
+  const [discount, setDiscount] = useState<boolean | null>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const [percent, setPercent] = useState<string | null>(null);
+  const [until, setUntil] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const shownPrice = price ?? (data?.price ? String(Math.round(data.price.amountMinor / 100)) : '');
+  const on = discount ?? data?.discount?.enabled ?? false;
+  const shownCode = code ?? data?.discount?.promoCode ?? '';
+  const shownPercent = percent ?? (data?.discount?.percent != null ? String(data.discount.percent) : '');
+  const shownUntil = until ?? data?.discount?.validUntil?.slice(0, 10) ?? '';
+  const naira = Number(shownPrice);
+  const pct = Number(shownPercent);
+  const valid = !!courseId && Number.isFinite(naira) && naira >= 0 && shownPrice !== '' && (!on || (shownCode.trim().length >= 3 && pct >= 1 && pct <= 100));
+  const save = async () => {
+    if (!courseId || !valid) return;
+    setBusy(true);
+    try {
+      await instructorApi.savePricing(courseId, {price: {amountMinor: Math.round(naira * 100), currency: 'NGN'}, discount: on ? {enabled: true, promoCode: shownCode.trim().toUpperCase(), percent: pct, ...(shownUntil ? {validUntil: `${shownUntil}T23:59:59Z`} : {})} : null});
+      onSave();
+    } catch (e) { Alert.alert('Could not save pricing', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
   return <View style={styles.screen}>
     <StackHeader title="Pricing" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <Field label="Price" defaultValue="₦15,000" keyboardType="numeric" />
+    {!courseId ? <Text style={[font, styles.note, styles.content]}>Create the course first to set its price.</Text> : !data ? <Loading error={error} reload={reload} /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <Field label="Price (₦, whole naira, 0 for free)" value={shownPrice} onChangeText={v => setPrice(v.replace(/\D/g, ''))} keyboardType="numeric" />
       <View style={styles.switchRow}>
         <Text style={[font, styles.switchText]}>Offer a discount</Text>
-        <Switch value={discount} onValueChange={setDiscount} trackColor={{true: colors.blue700, false: colors.sandLine}} />
+        <Switch value={on} onValueChange={setDiscount} trackColor={{true: colors.blue700, false: colors.sandLine}} />
       </View>
-      {discount && <>
-        <Field label="Promo code" defaultValue="LAUNCH20" />
-        <SelectField label="Valid until" value="30 Nov 2026" onPress={() => notConnected('Picking a date')} />
+      {on && <>
+        <Field label="Promo code" value={shownCode} onChangeText={setCode} autoCapitalize="characters" />
+        <Field label="Percent off (1 to 100)" value={shownPercent} onChangeText={v => setPercent(v.replace(/\D/g, ''))} keyboardType="numeric" />
+        <Field label="Valid until (YYYY-MM-DD, optional)" value={shownUntil} onChangeText={setUntil} placeholder="2026-12-31" />
       </>}
-    </ScrollView>
-    <Footer label="Save pricing" onPress={onSave} />
+    </ScrollView>}
+    <Footer label={busy ? 'Saving…' : 'Save pricing'} disabled={!valid || busy} onPress={save} />
   </View>;
 }
 
 /** Publish checklist: what is ready and what still needs fixing before the course goes live. */
-export function PublishChecklistScreen({onBack, onFix, onPublish}: {onBack: () => void; onFix: (key: string) => void; onPublish: () => void}) {
-  const ready = publishChecks.filter(c => c.done).length;
+export function PublishChecklistScreen({courseId, onBack, onFix, onPublished}: {courseId?: string; onBack: () => void; onFix: (target: string) => void; onPublished: () => void}) {
+  const {data, error, reload} = useLoaded<Checklist | null>(() => (courseId ? instructorApi.checklist(courseId) : Promise.resolve(null)), [courseId]);
+  const [busy, setBusy] = useState(false);
+  const publish = async () => {
+    if (!courseId) return;
+    setBusy(true);
+    try { await instructorApi.publish(courseId); Alert.alert('Submitted', 'Your course is published or sent for review, depending on your account.', [{text: 'OK', onPress: onPublished}]); }
+    catch (e) { Alert.alert('Could not publish', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
   return <View style={styles.screen}>
     <StackHeader title="Publish checklist" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    {!data ? <Loading error={error} reload={reload} /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.readyCard}>
-        <Text style={[font, styles.cardTitle]}>{ready} of {publishChecks.length} ready</Text>
-        <View style={styles.readyBar}><ProgressBar value={(ready / publishChecks.length) * 100} fill={colors.blue700} track={colors.sand} height={6} /></View>
+        <Text style={[font, styles.cardTitle]}>{data.ready} of {data.total} ready</Text>
+        <View style={styles.readyBar}><ProgressBar value={(data.ready / Math.max(1, data.total)) * 100} fill={colors.blue700} track={colors.sand} height={6} /></View>
       </View>
-      {publishChecks.map((check, i) => <Reveal key={check.id} order={i + 1}><View style={styles.check}>
-        {check.done
+      {data.items.map((check, i) => <Reveal key={check.key} order={i + 1}><View style={styles.check}>
+        {check.ok
           ? <View style={[styles.mark, styles.markDone]}><Icon name="check" size={16} color={colors.white} strokeWidth={2.4} /></View>
           : <View style={[styles.mark, styles.markWarn]}><Text style={[font, styles.warnText]}>!</Text></View>}
-        <Text style={[font, styles.checkText]}>{check.title}</Text>
-        {check.fix && <Pressable onPress={() => onFix(check.id)} hitSlop={10} accessibilityRole="button"><Text style={[font, styles.link]}>{check.fix}</Text></Pressable>}
+        <Text style={[font, styles.checkText]}>{check.label}</Text>
+        {!check.ok && check.fixTarget && <Pressable onPress={() => onFix(check.fixTarget as string)} hitSlop={10} accessibilityRole="button"><Text style={[font, styles.link]}>Fix</Text></Pressable>}
       </View></Reveal>)}
-    </ScrollView>
-    <Footer label="Publish course" onPress={onPublish} />
+    </ScrollView>}
+    <Footer label={busy ? 'Publishing…' : 'Publish course'} disabled={!data || !data.canPublish || busy} onPress={publish} />
   </View>;
 }
 

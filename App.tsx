@@ -10,7 +10,7 @@ import {LoginScreen} from './src/screens/auth/AuthScreens';
 import {authApi} from './src/api/endpoints';
 import type {User} from './src/api/types';
 import {
-  AssessmentBuilderScreen, CurriculumScreen, PricingScreen, PublishChecklistScreen, QuizBuilderScreen, SetupScreen, UploadVideoScreen,
+  AssessmentBuilderScreen, CurriculumScreen, PricingScreen, PublishChecklistScreen, BasicsScreen, QuizBuilderScreen, SetupScreen, UploadVideoScreen,
 } from './src/screens/instructor/CourseBuilderScreens';
 import {CoursesScreen} from './src/screens/instructor/CoursesScreen';
 import {DashboardScreen} from './src/screens/instructor/DashboardScreen';
@@ -22,7 +22,7 @@ import {colors} from './src/theme/tokens';
 
 type Tab = 'Dashboard' | 'Courses' | 'Students' | 'Messages' | 'More';
 type Page = Tab | 'Login' | 'Verify' | 'Notifications' | 'Grading' | 'Grade' | 'Setup' | 'Curriculum' | 'Quiz' | 'Assessment'
-  | 'Upload' | 'Pricing' | 'Publish' | 'Student' | 'Discussion' | 'Sso' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation'
+  | 'Upload' | 'Pricing' | 'Basics' | 'Publish' | 'Student' | 'Discussion' | 'Sso' | 'Announcement' | 'Live' | 'Certificate' | 'Conversation'
   | 'Profile' | 'EditProfile' | 'PublicProfile' | 'Settings' | 'NotificationSettings' | 'Security' | 'Help' | 'HelpSearch' | 'HelpArticle' | 'ContactSupport' | 'MessageSent' | 'Tickets' | 'TicketDetail';
 
 const tabs: TabItem<Tab>[] = [
@@ -69,7 +69,7 @@ function InstructorApp() {
     if (key === 'curriculum') nav('Curriculum');
     else if (key === 'pricing') nav('Pricing');
     else if (key === 'publish') nav('Publish');
-    else Alert.alert('Basics', 'Editing course details is not connected yet.');
+    else nav('Basics');
   };
   const openMore = (link: MoreLink) => {
     if (link === 'Discussions') nav('Discussion');
@@ -90,7 +90,7 @@ function InstructorApp() {
     switch (page) {
       case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by your admin. Ask them for an invitation.')} onSignedIn={u => { setUser(u); nav('Dashboard'); }} />;
       case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={id => { setGradeId(id); nav('Grade'); }} />;
-      case 'Courses': return <CoursesScreen onOpen={openCourse} onNew={() => { setCourse(undefined); setDraftTitle('New course'); nav('Setup'); }} onNotifications={() => nav('Notifications')} />;
+      case 'Courses': return <CoursesScreen onOpen={openCourse} onNotifications={() => nav('Notifications')} />;
       case 'Students': return <StudentsScreen onOpen={() => nav('Student')} onNotifications={() => nav('Notifications')} />;
       case 'Messages': return <MessagesScreen onOpen={t => { setThread(t); nav('Conversation'); }} onNotifications={() => nav('Notifications')} />;
       case 'Conversation': return <ConversationScreen key={thread.id} thread={thread} onBack={() => nav('Messages')} />;
@@ -114,13 +114,14 @@ function InstructorApp() {
       case 'Notifications': return <EmptyState title="Notifications" message="This screen is waiting on its design." actionLabel="Back" onAction={() => nav('Dashboard')} />;
       case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={id => { setGradeId(id); nav('Grade'); }} onNotifications={() => nav('Notifications')} />;
       case 'Grade': return <GradeSubmissionScreen key={gradeId} id={gradeId} onBack={() => nav('Grading')} onSave={() => nav('Grading')} />;
-      case 'Setup': return <SetupScreen title={draftTitle} onBack={() => nav('Courses')} onStep={onStep} />;
+      case 'Setup': return <SetupScreen courseId={course?.id} title={draftTitle} onBack={() => nav('Courses')} onStep={onStep} />;
       case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onPick={onPick} />;
       case 'Quiz': return <QuizBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
       case 'Assessment': return <AssessmentBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
       case 'Upload': return <UploadVideoScreen onBack={() => nav('Curriculum')} onDone={() => nav('Curriculum')} />;
-      case 'Pricing': return <PricingScreen onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
-      case 'Publish': return <PublishChecklistScreen onBack={() => nav('Setup')} onFix={id => (id === 'c3' ? nav('Pricing') : Alert.alert('Thumbnail', 'Thumbnail upload is not connected yet.'))} onPublish={() => Alert.alert('Publish', `${course?.title ?? draftTitle} can be published once the API is connected.`)} />;
+      case 'Pricing': return <PricingScreen courseId={course?.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
+      case 'Publish': return <PublishChecklistScreen courseId={course?.id} onBack={() => nav('Setup')} onFix={target => (target === 'curriculum' ? nav('Curriculum') : target === 'pricing' ? nav('Pricing') : target === 'basics' ? nav('Basics') : Alert.alert('Thumbnail', 'Uploading a thumbnail needs a photo picker, which this app does not have yet.'))} onPublished={() => nav('Courses')} />;
+      case 'Basics': return course ? <BasicsScreen courseId={course.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} /> : null;
       case 'Student': return <StudentDetailScreen onBack={() => nav('Students')} onMessage={() => { setThread(threads[0]); nav('Conversation'); }} />;
       case 'Discussion': return <DiscussionScreen onBack={() => nav('Student')} />;
     }

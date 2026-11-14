@@ -63,7 +63,7 @@ export function Segments<T extends string>({items, active, onSelect}: {items: re
   </Pressable>)}</View>;
 }
 
-export function Field({label, ...input}: Pick<TextInputProps, 'value' | 'onChangeText' | 'placeholder' | 'keyboardType' | 'multiline' | 'defaultValue'> & {label: string}) {
+export function Field({label, ...input}: Pick<TextInputProps, 'value' | 'onChangeText' | 'placeholder' | 'keyboardType' | 'multiline' | 'defaultValue' | 'autoCapitalize'> & {label: string}) {
   return <View style={styles.field}>
     <Text style={[font, styles.label]}>{label}</Text>
     <TextInput {...input} placeholderTextColor={colors.muted} style={[font, styles.input, input.multiline && styles.multiline]} />
