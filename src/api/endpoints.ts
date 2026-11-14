@@ -77,7 +77,21 @@ export type ProfileData = {fullName: string; headline: string | null; bio: strin
 export type SecurityData = {twoStepEnabled: boolean; passwordChangedAt: string | null; sessions: {id: string; deviceName: string; city: string | null; country: string | null; lastActiveAt: string; isCurrent: boolean}[]};
 export type NotificationRow = {id: string; title: string; body: string | null; createdAt: string; read: boolean};
 
+export type Thread = {id: string; courseId: string; lessonTitle: string; title: string | null; body: string; author: {fullName: string; initials: string}; replyCount: number; hasInstructorReply: boolean; createdAt: string};
+export type Reply = {id: string; body: string; author: {fullName: string}; isInstructor: boolean; isMe: boolean; createdAt: string};
+export type StudentDetail = {learner: {id: string; fullName: string; initials: string}; course: {id: string; title: string}; enrolledAt: string; progress: {pct: number; completedLessons: number; totalLessons: number}; grades: {title: string; scorePct: number | null; status: string}[]};
+export type CertTemplate = {style: 'classic' | 'modern' | 'minimal'; signerName: string | null; signerTitle: string | null};
+export type PrefRow = {type: string; enabled: boolean; channels: string[]; mandatory: boolean};
+
 export const instructorApi = {
+  discussions: () => request<Page<Thread>>('/instructor/discussions?limit=50'),
+  thread: (id: string) => request<{thread: Thread; replies: Reply[]}>(`/discussions/${id}`),
+  reply: (id: string, body: string) => request<Reply>(`/discussions/${id}/replies`, {method: 'POST', body: {body}}),
+  student: (learnerId: string, courseId?: string) => request<StudentDetail>(`/instructor/students/${learnerId}${courseId ? `?courseId=${courseId}` : ''}`),
+  certificate: (courseId: string) => request<CertTemplate>(`/instructor/courses/${courseId}/certificate-template`),
+  saveCertificate: (courseId: string, t: {style: CertTemplate['style']; signerName: string | null; signerTitle: string | null}) => request<CertTemplate>(`/instructor/courses/${courseId}/certificate-template`, {method: 'PUT', body: {...t, logoUploadId: null, signatureUploadId: null}}),
+  prefs: () => request<{items: PrefRow[]}>('/me/notification-preferences'),
+  savePrefs: (items: {type: string; enabled: boolean; channels: string[]}[]) => request<{items: PrefRow[]}>('/me/notification-preferences', {method: 'PUT', body: {items}}),
   quiz: (id: string) => request<QuizData>(`/instructor/quizzes/${id}`),
   saveQuiz: (id: string, q: {title: string; passMarkPct: number; timeLimitMinutes: number | null; maxAttempts: number | null; shuffleQuestions: boolean}) => request<QuizData>(`/instructor/quizzes/${id}`, {method: 'PUT', body: q}),
   addQuestion: (quizId: string, q: {type: QuestionType; prompt: string; points: number; options?: {text: string; isCorrect: boolean}[]; correctBoolean?: boolean; acceptedAnswers?: string[]}) => request<unknown>(`/instructor/quizzes/${quizId}/questions`, {method: 'POST', body: q}),

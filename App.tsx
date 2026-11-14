@@ -14,10 +14,10 @@ import {
 } from './src/screens/instructor/CourseBuilderScreens';
 import {CoursesScreen} from './src/screens/instructor/CoursesScreen';
 import {DashboardScreen} from './src/screens/instructor/DashboardScreen';
-import {DiscussionScreen, GradeSubmissionScreen, GradingScreen, StudentDetailScreen, StudentsScreen} from './src/screens/instructor/GradingScreens';
-import {AnnouncementScreen, CertificateScreen, LiveSessionsScreen, MoreScreen, type MoreLink} from './src/screens/instructor/MoreScreens';
-import {NotificationSettingsScreen, PublicProfileScreen, SettingsScreen} from './src/screens/instructor/ProfileHelpScreens';
-import {EditProfileScreen, NotificationsScreen, ProfileScreen, SecurityScreen} from './src/screens/instructor/AccountScreens';
+import {GradeSubmissionScreen, GradingScreen, StudentsScreen} from './src/screens/instructor/GradingScreens';
+import {AnnouncementScreen, LiveSessionsScreen, MoreScreen, type MoreLink} from './src/screens/instructor/MoreScreens';
+import {PublicProfileScreen, SettingsScreen} from './src/screens/instructor/ProfileHelpScreens';
+import {CertificateScreen, DiscussionScreen, EditProfileScreen, NotificationSettingsScreen, NotificationsScreen, ProfileScreen, SecurityScreen, StudentDetailScreen} from './src/screens/instructor/AccountScreens';
 import {InstructorHelpScreen} from './src/screens/instructor/HelpScreen';
 import {ConversationScreen, MessagesScreen, type Thread} from './src/screens/instructor/MessagesScreens';
 import {colors} from './src/theme/tokens';
@@ -49,6 +49,7 @@ function InstructorApp() {
   const [feedback, setFeedback] = useState(false);
   const [gradeId, setGradeId] = useState('');
   const [editId, setEditId] = useState('');
+  const [learner, setLearner] = useState<{id: string; courseId: string}>({id: '', courseId: ''});
   // Pages visited since the last tab, so Android's back button retraces them.
   const history = useRef<Page[]>([]);
   const nav = (p: Page) => {
@@ -94,7 +95,7 @@ function InstructorApp() {
       case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by your admin. Ask them for an invitation.')} onSignedIn={u => { setUser(u); nav('Dashboard'); }} />;
       case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={id => { setGradeId(id); nav('Grade'); }} />;
       case 'Courses': return <CoursesScreen onOpen={openCourse} onNotifications={() => nav('Notifications')} />;
-      case 'Students': return <StudentsScreen onOpen={() => nav('Student')} onNotifications={() => nav('Notifications')} />;
+      case 'Students': return <StudentsScreen onOpen={(id, courseId) => { setLearner({id, courseId}); nav('Student'); }} onNotifications={() => nav('Notifications')} />;
       case 'Messages': return <MessagesScreen onOpen={t => { setThread(t); nav('Conversation'); }} onNotifications={() => nav('Notifications')} />;
       case 'Conversation': return <ConversationScreen key={thread.id} thread={thread} onBack={() => nav('Messages')} />;
       case 'More': return <MoreScreen onOpen={openMore} onNotifications={() => nav('Notifications')} onLogout={logout} />;
@@ -119,8 +120,8 @@ function InstructorApp() {
       case 'Pricing': return <PricingScreen courseId={course?.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
       case 'Publish': return <PublishChecklistScreen courseId={course?.id} onBack={() => nav('Setup')} onFix={target => (target === 'curriculum' ? nav('Curriculum') : target === 'pricing' ? nav('Pricing') : target === 'basics' ? nav('Basics') : Alert.alert('Thumbnail', 'Uploading a thumbnail needs a photo picker, which this app does not have yet.'))} onPublished={() => nav('Courses')} />;
       case 'Basics': return course ? <BasicsScreen courseId={course.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} /> : null;
-      case 'Student': return <StudentDetailScreen onBack={() => nav('Students')} onMessage={() => nav('Messages')} />;
-      case 'Discussion': return <DiscussionScreen onBack={() => nav('Student')} />;
+      case 'Student': return <StudentDetailScreen key={learner.id} learnerId={learner.id} courseId={learner.courseId} onBack={() => nav('Students')} onMessage={() => nav('Messages')} />;
+      case 'Discussion': return <DiscussionScreen onBack={() => nav('More')} />;
     }
   })();
 

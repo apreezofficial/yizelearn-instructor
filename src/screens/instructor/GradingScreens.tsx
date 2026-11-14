@@ -84,7 +84,7 @@ export function GradeSubmissionScreen({id, onBack, onSave}: {id: string; onBack:
   </View>;
 }
 
-export function StudentsScreen({onOpen, onNotifications}: {onOpen: () => void; onNotifications: () => void}) {
+export function StudentsScreen({onOpen, onNotifications}: {onOpen: (learnerId: string, courseId: string) => void; onNotifications: () => void}) {
   const [filter, setFilter] = useState<StudentFilter>('All');
   const [query, setQuery] = useState('');
   const {data, error, reload} = useLoad(() => instructorApi.students(), []);
@@ -100,7 +100,7 @@ export function StudentsScreen({onOpen, onNotifications}: {onOpen: () => void; o
     <Segments items={['All', 'Behind', 'Done'] as const} active={filter} onSelect={setFilter} />
     {!data ? <LoadState error={error} reload={reload} /> : <FlatList data={rows} keyExtractor={(s, i) => `${s.learner.id}-${s.course.id}-${i}`} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
       ListEmptyComponent={<EmptyState title={data.data.length ? 'No students found' : 'No students yet'} message={data.data.length ? 'Try another search or filter.' : 'Learners who enrol in your courses will appear here.'} />}
-      renderItem={({item, index}) => <Row order={index} onPress={onOpen} leading={<Avatar initials={item.learner.initials || initialsOf(item.learner.fullName)} />} title={item.learner.fullName} meta={`${item.course.title}, ${item.progressPct}%`}
+      renderItem={({item, index}) => <Row order={index} onPress={() => onOpen(item.learner.id, item.course.id)} leading={<Avatar initials={item.learner.initials || initialsOf(item.learner.fullName)} />} title={item.learner.fullName} meta={`${item.course.title}, ${item.progressPct}%`}
         trailing={item.progressPct === 100 ? <Pill label="Done" tone="green" /> : <Icon name="next" size={18} color={colors.ink} />} />} />}
   </View>;
 }
