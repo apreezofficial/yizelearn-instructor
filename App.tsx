@@ -5,7 +5,7 @@ import {TabBar, type TabItem} from './src/components/Catalog';
 import {LaunchIntro} from './src/components/LaunchIntro';
 import {ScreenTransition} from './src/components/ScreenTransition';
 import {EmptyState} from './src/components/States';
-import type {InstructorCourse, LessonType} from './src/data/instructor';
+import {setIdentity, type InstructorCourse, type LessonType} from './src/data/instructor';
 import {LoginScreen} from './src/screens/auth/AuthScreens';
 import {authApi} from './src/api/endpoints';
 import type {User} from './src/api/types';
@@ -92,7 +92,7 @@ function InstructorApp() {
 
   const screen = (() => {
     switch (page) {
-      case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by your admin. Ask them for an invitation.')} onSignedIn={u => { setUser(u); nav('Dashboard'); }} />;
+      case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by your admin. Ask them for an invitation.')} onSignedIn={u => { setIdentity(u.name); setUser(u); nav('Dashboard'); }} />;
       case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={id => { setGradeId(id); nav('Grade'); }} />;
       case 'Courses': return <CoursesScreen onOpen={openCourse} onNotifications={() => nav('Notifications')} />;
       case 'Students': return <StudentsScreen onOpen={(id, courseId) => { setLearner({id, courseId}); nav('Student'); }} onNotifications={() => nav('Notifications')} />;

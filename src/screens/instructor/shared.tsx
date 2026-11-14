@@ -2,7 +2,7 @@ import React, {useEffect, useRef} from 'react';
 import {Animated, type ColorValue, Easing, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View, type ViewStyle} from 'react-native';
 import {Icon, type IconName} from '../../components/Icon';
 import {colors, fonts, radius, spacing, type} from '../../theme/tokens';
-import {instructorInitials} from '../../data/instructor';
+import {identity} from '../../data/instructor';
 
 export const font = {fontFamily: fonts.family};
 
@@ -18,7 +18,7 @@ export function TabHeader({title, onBell}: {title: string; onBell?: () => void})
         <Icon name="bell" size={22} color={colors.ink} />
         <View style={styles.unread} />
       </Pressable>
-      <View style={styles.avatar}><Text style={[font, styles.avatarText]}>{instructorInitials}</Text></View>
+      <View style={styles.avatar}><Text style={[font, styles.avatarText]}>{identity.initials}</Text></View>
     </View>
   </View>;
 }

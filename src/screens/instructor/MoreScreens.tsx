@@ -4,7 +4,7 @@ import {ActivityIndicator, Alert, Animated, Easing, Modal, Pressable, ScrollView
 import {instructorApi, type CourseRow, type LiveRow} from '../../api/endpoints';
 import {Icon, type IconName} from '../../components/Icon';
 import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
-import {instructorInitials, instructorName} from '../../data/instructor';
+import {identity} from '../../data/instructor';
 import {Drift} from './DashboardScreen';
 import {Field, Footer, IconBadge, Reveal, Row, SectionTitle, SelectField, StackHeader, TabHeader, font} from './shared';
 
@@ -35,7 +35,7 @@ export function MoreScreen({onOpen, onNotifications, onLogout}: {onOpen: (link: 
           <Icon name="logout" size={20} color={colors.danger} />
           <Text style={[font, styles.logoutText]}>Log out</Text>
         </Pressable>
-        <Text style={[font, styles.signedIn]}>Signed in as {instructorName}</Text>
+        <Text style={[font, styles.signedIn]}>Signed in as {identity.name}</Text>
       </Reveal>
     </View>
   </ScrollView>;
@@ -152,13 +152,13 @@ export function CertificateScreen({onBack, onSave}: {onBack: () => void; onSave:
         <Animated.View style={[styles.cert, {borderColor: look.border, backgroundColor: look.bg, borderWidth: template === 'Modern' ? 2 : 1.5},
           {opacity: flip, transform: [{scale: flip.interpolate({inputRange: [0, 1], outputRange: [0.94, 1]})}]}]}>
           {template === 'Modern' && <View style={styles.certBand} />}
-          {logo && <View style={styles.logoChip}><Text style={[font, styles.logoChipText]}>{instructorInitials}</Text></View>}
+          {logo && <View style={styles.logoChip}><Text style={[font, styles.logoChipText]}>{identity.initials}</Text></View>}
           <Text style={[font, styles.certTitle, look.serif && styles.serif]}>Certificate of completion</Text>
           <Text style={[font, styles.certName, look.serif && styles.serif]}>Learner name</Text>
           <Text style={[font, styles.certCourse]}>Data analysis in Excel</Text>
           <View style={styles.certFoot}>
             <View style={styles.seal}><Icon name="award" size={20} color={colors.blue900} /></View>
-            {signature && <Text style={[font, styles.signature]}>{instructorName}</Text>}
+            {signature && <Text style={[font, styles.signature]}>{identity.name}</Text>}
           </View>
         </Animated.View>
       </Reveal>
