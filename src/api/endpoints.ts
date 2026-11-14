@@ -26,6 +26,24 @@ export const authApi = {
   },
 };
 
+const qs = (params: Record<string, string | number | undefined>) => {
+  const parts = Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+};
+export type HelpCategory = {id: string; slug: string; name: string; iconKey: string | null; articleCount: number};
+export type HelpArticleCard = {id: string; title: string};
+export type HelpArticle = HelpArticleCard & {lead?: string | null; blocks: {type: string; text?: string | null; items?: string[]}[]; shareUrl: string};
+export type TicketTopic = 'payments' | 'account' | 'courses' | 'certificates' | 'quizzes_and_grades' | 'technical' | 'course_upload' | 'other';
+export const helpApi = {
+  categories: () => request<Page<HelpCategory>>(`/help/categories${qs({limit: 50, audience: 'instructor'})}`),
+  articles: (query: {q?: string; categoryId?: string} = {}) => request<Page<HelpArticleCard>>(query.categoryId ? `/help/categories/${query.categoryId}/articles${qs({limit: 50})}` : `/help/articles${qs({limit: 50, q: query.q, audience: 'instructor'})}`),
+  article: (id: string) => request<HelpArticle>(`/help/articles/${id}`),
+  rate: (id: string, helpful: boolean) => request<void>(`/help/articles/${id}/feedback`, {method: 'POST', body: {helpful}}),
+};
+export const ticketsApi = {
+  create: (v: {topic: TicketTopic; subject: string; message: string}) => request<{id: string; number: number}>('/support/tickets', {method: 'POST', idempotent: true, body: v}),
+};
+
 export type Metric = {value: number; changePct: number | null; changePts: number | null};
 export type Dashboard = {range: string; activeLearners: Metric; completion: Metric; toGrade: {count: number; overdue: number}; engagement: {date: string; value: number}[]; toGradePreview: GradingItem[]};
 export type GradingItem = {id: string; type: string; learner: {id: string; fullName: string; initials: string}; courseId: string; courseTitle: string; title: string; submittedAt: string; dueAt: string | null; status: 'pending' | 'overdue' | 'graded'};
