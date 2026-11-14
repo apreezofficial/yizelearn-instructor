@@ -43,6 +43,15 @@ export type CourseBasics = {title: string; subtitle: string | null; summary: str
 
 export type LiveRow = {id: string; title: string; startsAt: string; durationMin: number; status: string; capacity: number; bookedCount: number};
 
+export type ConversationRow = {id: string; counterpart: {id: string; fullName: string; initials: string}; lastMessage: {text?: string; sentAt?: string} | null; unread: boolean; updatedAt: string};
+export type MessageRow = {id: string; text: string; isMine: boolean; sentAt: string};
+export const messagesApi = {
+  conversations: () => request<Page<ConversationRow>>('/conversations?limit=50'),
+  messages: (id: string) => request<Page<MessageRow>>(`/conversations/${id}/messages?limit=100`),
+  send: (id: string, text: string) => request<MessageRow>(`/conversations/${id}/messages`, {method: 'POST', body: {text, clientMessageId: `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`}}),
+  markRead: (id: string) => request<void>(`/conversations/${id}/read`, {method: 'POST'}),
+};
+
 export const instructorApi = {
   announce: (courseId: string, title: string, body: string) => request<{id: string; recipientCount: number | null}>('/instructor/announcements', {method: 'POST', idempotent: true, body: {courseId, title, body}}),
   liveSessions: () => request<Page<LiveRow>>('/instructor/live-sessions?limit=50'),

@@ -17,7 +17,7 @@ import {DashboardScreen} from './src/screens/instructor/DashboardScreen';
 import {DiscussionScreen, GradeSubmissionScreen, GradingScreen, StudentDetailScreen, StudentsScreen} from './src/screens/instructor/GradingScreens';
 import {AnnouncementScreen, CertificateScreen, LiveSessionsScreen, MoreScreen, type MoreLink} from './src/screens/instructor/MoreScreens';
 import {ContactSupportScreen, EditProfileScreen, FeedbackSheet, HelpArticleScreen, HelpCentreScreen, HelpSearchScreen, MessageSentScreen, NotificationSettingsScreen, ProfileScreen, PublicProfileScreen, SecurityScreen, SettingsScreen, TicketDetailScreen, TicketsScreen} from './src/screens/instructor/ProfileHelpScreens';
-import {ConversationScreen, MessagesScreen, threads, type Thread} from './src/screens/instructor/MessagesScreens';
+import {ConversationScreen, MessagesScreen, type Thread} from './src/screens/instructor/MessagesScreens';
 import {colors} from './src/theme/tokens';
 
 type Tab = 'Dashboard' | 'Courses' | 'Students' | 'Messages' | 'More';
@@ -42,7 +42,7 @@ function InstructorApp() {
   const [page, setPage] = useState<Page>('Login');
   const [user, setUser] = useState<User | undefined>();
   const [course, setCourse] = useState<InstructorCourse | undefined>();
-  const [thread, setThread] = useState<Thread>(threads[0]);
+  const [thread, setThread] = useState<Thread>({id: '', name: '', initials: '', last: '', time: '', unread: false});
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
   const [feedback, setFeedback] = useState(false);
   const [gradeId, setGradeId] = useState('');
@@ -122,7 +122,7 @@ function InstructorApp() {
       case 'Pricing': return <PricingScreen courseId={course?.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} />;
       case 'Publish': return <PublishChecklistScreen courseId={course?.id} onBack={() => nav('Setup')} onFix={target => (target === 'curriculum' ? nav('Curriculum') : target === 'pricing' ? nav('Pricing') : target === 'basics' ? nav('Basics') : Alert.alert('Thumbnail', 'Uploading a thumbnail needs a photo picker, which this app does not have yet.'))} onPublished={() => nav('Courses')} />;
       case 'Basics': return course ? <BasicsScreen courseId={course.id} onBack={() => nav('Setup')} onSave={() => nav('Setup')} /> : null;
-      case 'Student': return <StudentDetailScreen onBack={() => nav('Students')} onMessage={() => { setThread(threads[0]); nav('Conversation'); }} />;
+      case 'Student': return <StudentDetailScreen onBack={() => nav('Students')} onMessage={() => nav('Messages')} />;
       case 'Discussion': return <DiscussionScreen onBack={() => nav('Student')} />;
     }
   })();
