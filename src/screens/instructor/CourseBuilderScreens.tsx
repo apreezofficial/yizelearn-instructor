@@ -1,5 +1,6 @@
-import React, {useState} from 'react';
-import {Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
+import {ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
+import {instructorApi, type Curriculum} from '../../api/endpoints';
 import {ProgressBar} from '../../components/Chalkboard';
 import {CourseArt} from '../../components/Catalog';
 import {Icon} from '../../components/Icon';
@@ -42,14 +43,37 @@ export function SetupScreen({title, onBack, onStep}: {title: string; onBack: () 
 }
 
 /** Curriculum: modules with their lessons, plus the add-lesson sheet. */
-export function CurriculumScreen({onBack, onPick}: {onBack: () => void; onPick: (type: LessonType) => void}) {
+export function CurriculumScreen({courseId, onBack, onPick}: {courseId?: string; onBack: () => void; onPick: (type: LessonType) => void}) {
   const [closed, setClosed] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
+  const [moduleSheet, setModuleSheet] = useState(false);
+  const [moduleTitle, setModuleTitle] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [data, setData] = useState<Curriculum | null>(null);
+  const [error, setError] = useState('');
+  const load = useCallback(() => {
+    if (!courseId) return;
+    setError('');
+    instructorApi.curriculum(courseId).then(setData, e => setError(e instanceof Error ? e.message : 'Could not load the curriculum.'));
+  }, [courseId]);
+  useEffect(load, [load]);
   const toggle = (id: string) => setClosed(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
+  const addModule = async () => {
+    if (!courseId || moduleTitle.trim().length < 2) return;
+    setSaving(true);
+    try { await instructorApi.addModule(courseId, moduleTitle.trim()); setModuleTitle(''); setModuleSheet(false); load(); }
+    catch (e) { Alert.alert('Could not add the module', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setSaving(false); }
+  };
+  const modules = data?.modules ?? [];
   return <View style={styles.screen}>
     <StackHeader title="Curriculum" onBack={onBack} right={<Pressable onPress={() => setSheet(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add lesson"><Icon name="plus" size={24} color={colors.ink} /></Pressable>} />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {curriculum.map((module, mi) => {
+      {!courseId && <Text style={[font, styles.note]}>Save the course first, then you can add modules and lessons.</Text>}
+      {!!error && <Pressable onPress={load} accessibilityRole="button"><Text style={[font, styles.note]}>{error} Tap to try again.</Text></Pressable>}
+      {courseId && !data && !error && <ActivityIndicator color={colors.blue700} style={{marginTop: 24}} />}
+      {modules.length === 0 && !!data && <Text style={[font, styles.note]}>No modules yet. Add the first one below.</Text>}
+      {modules.map((module, mi) => {
         const expanded = !closed.includes(module.id);
         return <Reveal key={module.id} order={mi} style={styles.module}>
           <Pressable onPress={() => toggle(module.id)} style={styles.moduleHead} accessibilityRole="button" accessibilityState={{expanded}}>
@@ -57,6 +81,7 @@ export function CurriculumScreen({onBack, onPick}: {onBack: () => void; onPick: 
             <Text style={[font, styles.moduleTitle]}>{module.title}</Text>
             <Icon name={expanded ? 'down' : 'next'} size={20} color={colors.ink} />
           </Pressable>
+          {expanded && module.lessons.length === 0 && <Text style={[font, styles.lessonType, styles.lessonEmpty]}>No lessons in this module yet.</Text>}
           {expanded && module.lessons.map(lesson => <View key={lesson.id} style={styles.lesson}>
             <Icon name="handle" size={16} color={colors.muted} />
             <Text style={[font, styles.lessonTitle]}>{lesson.title}</Text>
@@ -64,11 +89,21 @@ export function CurriculumScreen({onBack, onPick}: {onBack: () => void; onPick: 
           </View>)}
         </Reveal>;
       })}
-      <Pressable onPress={() => notConnected('Adding modules')} style={styles.addModule} accessibilityRole="button">
+      {courseId && <Pressable onPress={() => setModuleSheet(true)} style={styles.addModule} accessibilityRole="button">
         <Text style={[font, styles.addText]}>+ Add module</Text>
-      </Pressable>
+      </Pressable>}
     </ScrollView>
-    <Footer label="Add lesson" onPress={() => setSheet(true)} />
+    <Footer label="Add lesson" disabled={!courseId} onPress={() => setSheet(true)} />
+
+    <Modal visible={moduleSheet} transparent animationType="fade" onRequestClose={() => setModuleSheet(false)}>
+      <Pressable style={styles.scrim} onPress={() => setModuleSheet(false)} accessibilityLabel="Close" />
+      <View style={styles.sheet}>
+        <View style={styles.grabber} />
+        <Text style={[font, styles.sheetTitle]}>New module</Text>
+        <TextInput value={moduleTitle} onChangeText={setModuleTitle} placeholder="Module title" placeholderTextColor={colors.muted} style={[font, styles.moduleInput]} autoFocus />
+        <Footer label={saving ? 'Adding…' : 'Add module'} disabled={saving || moduleTitle.trim().length < 2} onPress={addModule} />
+      </View>
+    </Modal>
 
     <Modal visible={sheet} transparent animationType="fade" onRequestClose={() => setSheet(false)}>
       <Pressable style={styles.scrim} onPress={() => setSheet(false)} accessibilityLabel="Close" />
@@ -211,6 +246,9 @@ export function PublishChecklistScreen({onBack, onFix, onPublish}: {onBack: () =
 
 const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: colors.cream},
+  note: {fontSize: 15, color: colors.muted, marginTop: 16, lineHeight: 22},
+  lessonEmpty: {paddingVertical: 12},
+  moduleInput: {minHeight: 52, borderRadius: radius.field, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, paddingHorizontal: 16, fontSize: type.body, color: colors.ink, marginBottom: 14},
   content: {paddingHorizontal: spacing.screen, paddingBottom: 28},
   flex: {flex: 1},
   pressed: {opacity: 0.8},

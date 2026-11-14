@@ -114,7 +114,7 @@ function InstructorApp() {
       case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={() => nav('Grade')} onNotifications={() => nav('Notifications')} />;
       case 'Grade': return <GradeSubmissionScreen onBack={() => nav('Grading')} onSave={() => nav('Grading')} onRubric={() => Alert.alert('Rubric', 'Rubrics are not connected yet.')} />;
       case 'Setup': return <SetupScreen title={draftTitle} onBack={() => nav('Courses')} onStep={onStep} />;
-      case 'Curriculum': return <CurriculumScreen onBack={() => nav('Setup')} onPick={onPick} />;
+      case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onPick={onPick} />;
       case 'Quiz': return <QuizBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
       case 'Assessment': return <AssessmentBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;
       case 'Upload': return <UploadVideoScreen onBack={() => nav('Curriculum')} onDone={() => nav('Curriculum')} />;
