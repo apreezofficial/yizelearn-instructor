@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Animated, Easing, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {SearchField} from '../../components/Catalog';
 import {Icon} from '../../components/Icon';
-import {colors, radius, spacing, type} from '../../theme/tokens';
+import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, Reveal, StackHeader, TabHeader, font} from './shared';
 
 const doodles = require('../../assets/patterns/chat-doodles.png');
@@ -38,16 +38,16 @@ export function MessagesScreen({onOpen, onNotifications}: {onOpen: (t: Thread) =
         <Pressable onPress={() => onOpen(t)} style={({pressed}) => [styles.row, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`${t.name}${t.unread ? ', unread' : ''}`}>
           <Avatar initials={t.initials} size={48} />
           <View style={styles.copy}>
-            <Text style={[styles.name, font, t.unread && styles.bold]} numberOfLines={1}>{t.name}</Text>
-            <Text style={[styles.last, font, t.unread && styles.lastUnread]} numberOfLines={1}>{t.last}</Text>
+            <Text style={[font, styles.name, t.unread && styles.bold]} numberOfLines={1}>{t.name}</Text>
+            <Text style={[font, styles.last, t.unread && styles.lastUnread]} numberOfLines={1}>{t.last}</Text>
           </View>
           <View style={styles.meta}>
-            <Text style={[styles.time, font]}>{t.time}</Text>
+            <Text style={[font, styles.time]}>{t.time}</Text>
             {t.unread && <View style={styles.dot} />}
           </View>
         </Pressable>
       </Reveal>)}
-      {rows.length === 0 && <Text style={[styles.empty, font]}>No conversations match “{query}”.</Text>}
+      {rows.length === 0 && <Text style={[font, styles.empty]}>No conversations match “{query}”.</Text>}
     </ScrollView>
   </View>;
 }
@@ -62,7 +62,7 @@ function Bubble({message, delay}: {message: Message; delay: number}) {
     {scale: t.interpolate({inputRange: [0, 1], outputRange: [0.92, 1]})},
   ]}]}>
     <View style={[styles.bubble, me ? styles.bubbleMe : styles.bubbleThem]}>
-      <Text style={[styles.bubbleText, font, me && styles.bubbleTextMe]}>{message.text}</Text>
+      <Text style={[font, styles.bubbleText, me && styles.bubbleTextMe]}>{message.text}</Text>
     </View>
   </Animated.View>;
 }
@@ -84,11 +84,11 @@ export function ConversationScreen({thread, onBack}: {thread: Thread; onBack: ()
     </View>
     <StackHeader title={thread.name} onBack={onBack} right={<Icon name="more" size={22} color={colors.ink} />} />
     <ScrollView ref={scroll} contentContainerStyle={styles.thread} showsVerticalScrollIndicator={false} onContentSizeChange={() => scroll.current?.scrollToEnd({animated: true})}>
-      {messages.length === 0 && <Text style={[styles.empty, font]}>No messages yet. Say hello.</Text>}
+      {messages.length === 0 && <Text style={[font, styles.empty]}>No messages yet. Say hello.</Text>}
       {messages.map((m, i) => <Bubble key={i} message={m} delay={i < initial ? 100 + i * 90 : 0} />)}
     </ScrollView>
     <View style={styles.composer}>
-      <TextInput value={draft} onChangeText={setDraft} placeholder="Write a message" placeholderTextColor={colors.muted} onSubmitEditing={send} returnKeyType="send" style={[styles.input, font]} />
+      <TextInput value={draft} onChangeText={setDraft} placeholder="Write a message" placeholderTextColor={colors.muted} onSubmitEditing={send} returnKeyType="send" style={[font, styles.input]} />
       <Pressable onPress={send} disabled={!draft.trim()} style={({pressed}) => [styles.send, !draft.trim() && styles.dim, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Send message">
         <Icon name="send" size={20} color={colors.white} />
       </Pressable>
@@ -103,10 +103,10 @@ const styles = StyleSheet.create({
   row: {flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 76, borderBottomWidth: 1, borderBottomColor: colors.line},
   pressed: {opacity: 0.7},
   copy: {flex: 1},
-  name: {fontSize: type.label, color: colors.ink, fontWeight: '600'},
-  bold: {fontWeight: '800'},
+  name: {fontSize: type.label, color: colors.ink, fontFamily: fonts.semibold},
+  bold: {fontFamily: fonts.bold},
   last: {fontSize: type.small, color: colors.muted, marginTop: 4},
-  lastUnread: {color: colors.ink, fontWeight: '600'},
+  lastUnread: {color: colors.ink, fontFamily: fonts.semibold},
   meta: {alignItems: 'flex-end', gap: 8},
   time: {fontSize: type.caption, color: colors.muted},
   dot: {width: 10, height: 10, borderRadius: 5, backgroundColor: colors.blue700},

@@ -9,11 +9,11 @@ import {Icon, type IconName} from './Icon';
 const font = {fontFamily: fonts.family};
 
 export function SearchField({value, onChangeText, onSubmit, placeholder = 'Search courses', style}: {value: string; onChangeText: (text: string) => void; onSubmit?: () => void; placeholder?: string; style?: object}) {
-  return <View style={[styles.search, style]}><Icon name="search" size={22} color={colors.muted} /><TextInput value={value} onChangeText={onChangeText} onSubmitEditing={onSubmit} placeholder={placeholder} placeholderTextColor={colors.muted} returnKeyType="search" style={[styles.searchInput, font]} /></View>;
+  return <View style={[styles.search, style]}><Icon name="search" size={22} color={colors.muted} /><TextInput value={value} onChangeText={onChangeText} onSubmitEditing={onSubmit} placeholder={placeholder} placeholderTextColor={colors.muted} returnKeyType="search" style={[font, styles.searchInput]} /></View>;
 }
 
 export function CategoryChips({items, active, onSelect}: {items: readonly string[]; active: string; onSelect: (item: string) => void}) {
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{items.map(item => <Pressable key={item} onPress={() => onSelect(item)} style={({pressed}) => [styles.chip, active === item && styles.chipActive, pressed && styles.pressed]}><Text style={[styles.chipText, font, active === item && styles.chipTextActive]}>{item}</Text></Pressable>)}</ScrollView>;
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{items.map(item => <Pressable key={item} onPress={() => onSelect(item)} style={({pressed}) => [styles.chip, active === item && styles.chipActive, pressed && styles.pressed]}><Text style={[font, styles.chipText, active === item && styles.chipTextActive]}>{item}</Text></Pressable>)}</ScrollView>;
 }
 
 export function Stars({value = 0, size = 15}: {value?: number; size?: number}) {
@@ -22,7 +22,7 @@ export function Stars({value = 0, size = 15}: {value?: number; size?: number}) {
 }
 
 export function Rating({value = 0, count, size = 15}: {value?: number; count?: number; size?: number}) {
-  return <View style={styles.rating}><Text style={[styles.ratingValue, font, {fontSize: size}]}>{value.toFixed(1)}</Text><Stars value={value} size={size} />{count !== undefined && <Text style={[styles.ratingCount, font]}>({formatNumber(count)} ratings)</Text>}</View>;
+  return <View style={styles.rating}><Text style={[font, styles.ratingValue, {fontSize: size}]}>{value.toFixed(1)}</Text><Stars value={value} size={size} />{count !== undefined && <Text style={[font, styles.ratingCount]}>({formatNumber(count)} ratings)</Text>}</View>;
 }
 
 // Abstract cover art in brand shapes, varied per course so cards don't look identical.
@@ -41,9 +41,9 @@ export function CourseCard({course, index, onPress}: {course: Course; index: num
   return <Pressable onPress={onPress} style={({pressed}) => [styles.card, pressed && styles.cardPressed]}>
     <CourseArt index={index} />
     <View style={styles.cardCopy}>
-      <Text style={[styles.cardTitle, font]} numberOfLines={2}>{course.title}</Text>
-      <Text style={[styles.cardInstructor, font]} numberOfLines={1}>{course.instructorName}</Text>
-      <View style={styles.cardFoot}><Rating value={course.rating} size={13} /><Text style={[styles.price, font]}>{formatNaira(course.price)}</Text></View>
+      <Text style={[font, styles.cardTitle]} numberOfLines={2}>{course.title}</Text>
+      <Text style={[font, styles.cardInstructor]} numberOfLines={1}>{course.instructorName}</Text>
+      <View style={styles.cardFoot}><Rating value={course.rating} size={13} /><Text style={[font, styles.price]}>{formatNaira(course.price)}</Text></View>
     </View>
   </Pressable>;
 }
@@ -53,7 +53,7 @@ export function RoundButton({icon, onPress, size = 44, color = colors.ink, style
 }
 
 export function EnrolBar({price, onEnrol}: {price?: number; onEnrol: () => void}) {
-  return <View style={styles.enrolBar}><View><Text style={[styles.enrolLabel, font]}>Price</Text><Text style={[styles.enrolPrice, font]}>{formatNaira(price)}</Text></View><Pressable onPress={onEnrol} style={({pressed}) => [styles.enrolButton, pressed && styles.pressed]}><Text style={[styles.enrolText, font]}>Enrol now</Text></Pressable></View>;
+  return <View style={styles.enrolBar}><View><Text style={[font, styles.enrolLabel]}>Price</Text><Text style={[font, styles.enrolPrice]}>{formatNaira(price)}</Text></View><Pressable onPress={onEnrol} style={({pressed}) => [styles.enrolButton, pressed && styles.pressed]}><Text style={[font, styles.enrolText]}>Enrol now</Text></Pressable></View>;
 }
 
 export type TabItem<T extends string> = {key: T; label: string; icon: IconName};
@@ -68,7 +68,7 @@ function Tab<T extends string>({item, on, onSelect}: {item: TabItem<T>; on: bool
     <View style={styles.tabIcon}>
       <Icon name={item.icon} size={21} strokeWidth={1.5} solid={on} color={on ? colors.blue700 : colors.muted} />
     </View>
-    <Text style={[styles.tabLabel, font, on && styles.tabLabelActive]}>{item.label}</Text>
+    <Text style={[font, styles.tabLabel, on && styles.tabLabelActive]}>{item.label}</Text>
   </Pressable>;
 }
 
@@ -78,31 +78,31 @@ const styles = StyleSheet.create({
   chips: {gap: 10, paddingVertical: 4, paddingHorizontal: spacing.screen},
   chip: {height: 44, paddingHorizontal: 20, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, justifyContent: 'center'},
   chipActive: {backgroundColor: colors.sky, borderColor: colors.sky},
-  chipText: {fontSize: type.label, color: colors.ink, fontWeight: '600'},
+  chipText: {fontSize: type.label, color: colors.ink, fontFamily: fonts.semibold},
   chipTextActive: {color: colors.onSky},
   stars: {flexDirection: 'row', gap: 1},
   rating: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  ratingValue: {color: colors.ink, fontWeight: '700'},
+  ratingValue: {color: colors.ink, fontFamily: fonts.bold},
   ratingCount: {fontSize: type.caption, color: colors.muted},
   art: {overflow: 'hidden'},
   card: {flexDirection: 'row', alignItems: 'center', backgroundColor: colors.sand, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 12, gap: spacing.gap, marginBottom: spacing.gap},
   cardPressed: {transform: [{scale: 0.985}], opacity: 0.92},
   pressed: {opacity: 0.8},
   cardCopy: {flex: 1},
-  cardTitle: {fontSize: type.subheading - 1, lineHeight: 22, color: colors.ink, fontWeight: '800'},
+  cardTitle: {fontSize: type.subheading - 1, lineHeight: 22, color: colors.ink, fontFamily: fonts.bold},
   cardInstructor: {fontSize: type.caption, color: colors.muted, marginTop: 4},
   cardFoot: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10},
-  price: {fontSize: type.subheading - 1, color: colors.ink, fontWeight: '800'},
+  price: {fontSize: type.subheading - 1, color: colors.ink, fontFamily: fonts.bold},
   round: {backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center'},
   enrolBar: {flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: spacing.screen, paddingVertical: 14, backgroundColor: colors.barBg, borderTopWidth: 1, borderTopColor: colors.line},
   enrolLabel: {fontSize: type.caption, color: colors.muted},
-  enrolPrice: {fontSize: type.title, color: colors.ink, fontWeight: '800'},
+  enrolPrice: {fontSize: type.title, color: colors.ink, fontFamily: fonts.bold},
   enrolButton: {flex: 1, height: spacing.button, borderRadius: radius.button, backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center'},
-  enrolText: {fontSize: type.subheading, color: colors.onSky, fontWeight: '700'},
+  enrolText: {fontSize: type.subheading, color: colors.onSky, fontFamily: fonts.bold},
   // Matches the Figma nav: sand bar, small thin icons, the active one solid in a light blue pill.
   tabBar: {flexDirection: 'row', justifyContent: 'space-around', backgroundColor: colors.sand, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 6},
   tab: {alignItems: 'center', minWidth: 64, gap: 3},
   tabIcon: {width: 48, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center'},
   tabLabel: {fontSize: 11, color: colors.muted},
-  tabLabelActive: {color: colors.blue700, fontWeight: '700'},
+  tabLabelActive: {color: colors.blue700, fontFamily: fonts.bold},
 });

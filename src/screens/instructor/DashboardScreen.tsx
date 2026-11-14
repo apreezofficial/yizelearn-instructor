@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {dashboard} from '../../data/instructor';
-import {colors, radius, spacing, type} from '../../theme/tokens';
+import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, IconBadge, Pill, Reveal, Row, SectionTitle, TabHeader} from './shared';
 
 type Props = {onGrading: () => void; onNotifications: () => void; onGradeItem: () => void};
@@ -64,13 +64,13 @@ function EngagementChart() {
       const target = Math.max(BAR_MIN, (d.value / max) * BAR_MAX);
       return <Pressable key={i} onPress={() => select(i)} style={styles.barCol} accessibilityRole="button" accessibilityLabel={`${d.day}: ${d.value} active learners`} accessibilityState={{selected: i === selected}}>
         {i === selected && <Animated.View style={[styles.barBubble, {opacity: bubble, transform: [{scale: bubble.interpolate({inputRange: [0, 1], outputRange: [0.6, 1]})}, {translateY: bubble.interpolate({inputRange: [0, 1], outputRange: [6, 0]})}]}]}>
-          <Text style={[styles.barBubbleText, font]}>{d.value}</Text>
+          <Text style={[font, styles.barBubbleText]}>{d.value}</Text>
         </Animated.View>}
         <Animated.View style={[styles.bar, {
           height: grow[i].interpolate({inputRange: [0, 1], outputRange: [0, target]}),
           backgroundColor: active[i].interpolate({inputRange: [0, 1], outputRange: ['#C6DAF2', colors.blue700]}),
         }]} />
-        <Text style={[styles.barDay, font, i === selected && styles.barDayOn]}>{d.day}</Text>
+        <Text style={[font, styles.barDay, i === selected && styles.barDayOn]}>{d.day}</Text>
       </Pressable>;
     })}
   </View>;
@@ -84,32 +84,32 @@ export function DashboardScreen({onGrading, onNotifications, onGradeItem}: Props
       <Drift style={styles.heroBig} range={8} duration={3200} />
       <Drift style={styles.heroSmall} range={-6} duration={2600} />
       <Drift style={styles.heroDot} range={5} duration={2000} />
-      <Text style={[styles.heroLabel, font]}>Active learners</Text>
-      <CountUp value={dashboard.activeLearners} style={[styles.heroValue, font]} />
-      <View style={styles.heroPill}><Text style={[styles.heroPillText, font]}>{dashboard.activeChange}</Text></View>
+      <Text style={[font, styles.heroLabel]}>Active learners</Text>
+      <CountUp value={dashboard.activeLearners} style={[font, styles.heroValue]} />
+      <View style={styles.heroPill}><Text style={[font, styles.heroPillText]}>{dashboard.activeChange}</Text></View>
     </Reveal>
 
     <View style={styles.pair}>
       <Reveal order={1} style={styles.stat}>
-        <View style={styles.statHead}><IconBadge name="chart" size={34} /><Text style={[styles.statLabel, font]}>Completion</Text></View>
+        <View style={styles.statHead}><IconBadge name="chart" size={34} /><Text style={[font, styles.statLabel]}>Completion</Text></View>
         <View style={styles.statFoot}>
-          <CountUp value={dashboard.completion} suffix="%" style={[styles.statValue, font]} />
-          <Text style={[styles.statNote, font]}>{dashboard.completionChange}</Text>
+          <CountUp value={dashboard.completion} suffix="%" style={[font, styles.statValue]} />
+          <Text style={[font, styles.statNote]}>{dashboard.completionChange}</Text>
         </View>
       </Reveal>
       <Reveal order={2} style={styles.stat}>
-        <View style={styles.statHead}><IconBadge name="award" size={34} /><Text style={[styles.statLabel, font]}>To grade</Text></View>
+        <View style={styles.statHead}><IconBadge name="award" size={34} /><Text style={[font, styles.statLabel]}>To grade</Text></View>
         <View style={styles.statFoot}>
-          <CountUp value={dashboard.toGrade} style={[styles.statValue, font]} />
-          <Text style={[styles.statNote, font]}>{dashboard.overdue} overdue</Text>
+          <CountUp value={dashboard.toGrade} style={[font, styles.statValue]} />
+          <Text style={[font, styles.statNote]}>{dashboard.overdue} overdue</Text>
         </View>
       </Reveal>
     </View>
 
     <Reveal order={3} style={styles.chart}>
       <View style={styles.chartHead}>
-        <Text style={[styles.chartTitle, font]}>Engagement</Text>
-        <Text style={[styles.chartRange, font]}>7 days</Text>
+        <Text style={[font, styles.chartTitle]}>Engagement</Text>
+        <Text style={[font, styles.chartRange]}>7 days</Text>
       </View>
       <EngagementChart />
     </Reveal>
@@ -131,26 +131,26 @@ const styles = StyleSheet.create({
   heroSmall: {position: 'absolute', right: 14, top: 84, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.blue700},
   heroDot: {position: 'absolute', right: 94, top: 112, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.marigold},
   heroLabel: {fontSize: type.small, color: colors.white, opacity: 0.85},
-  heroValue: {fontSize: 40, color: colors.white, fontWeight: '800', marginVertical: 8, fontVariant: ['tabular-nums']},
+  heroValue: {fontSize: 40, color: colors.white, fontFamily: fonts.bold, marginVertical: 8, fontVariant: ['tabular-nums']},
   heroPill: {alignSelf: 'flex-start', backgroundColor: colors.sand, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6},
-  heroPillText: {fontSize: type.caption, color: colors.ink, fontWeight: '700'},
+  heroPillText: {fontSize: type.caption, color: colors.ink, fontFamily: fonts.bold},
   pair: {flexDirection: 'row', gap: 10, paddingHorizontal: spacing.screen, marginBottom: 12},
   stat: {flex: 1, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 14},
   statHead: {flexDirection: 'row', alignItems: 'center', gap: 10},
   statLabel: {fontSize: type.small, color: colors.muted},
   statFoot: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 12},
-  statValue: {fontSize: type.title, color: colors.ink, fontWeight: '800', fontVariant: ['tabular-nums']},
-  statNote: {fontSize: type.caption, color: colors.success, fontWeight: '700', marginBottom: 4},
+  statValue: {fontSize: type.title, color: colors.ink, fontFamily: fonts.bold, fontVariant: ['tabular-nums']},
+  statNote: {fontSize: type.caption, color: colors.success, fontFamily: fonts.bold, marginBottom: 4},
   chart: {marginHorizontal: spacing.screen, backgroundColor: colors.barBg, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 16},
   chartHead: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  chartTitle: {fontSize: type.label, color: colors.ink, fontWeight: '800'},
+  chartTitle: {fontSize: type.label, color: colors.ink, fontFamily: fonts.bold},
   chartRange: {fontSize: type.caption, color: colors.muted},
   bars: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 130, marginTop: 6},
   barCol: {alignItems: 'center', flex: 1, gap: 6, justifyContent: 'flex-end', height: '100%'},
   bar: {width: 30, borderRadius: 5},
   barBubble: {backgroundColor: colors.ink, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3},
-  barBubbleText: {fontSize: type.tab, color: colors.white, fontWeight: '700'},
+  barBubbleText: {fontSize: type.tab, color: colors.white, fontFamily: fonts.bold},
   barDay: {fontSize: type.tab, color: colors.muted},
-  barDayOn: {color: colors.ink, fontWeight: '800'},
+  barDayOn: {color: colors.ink, fontFamily: fonts.bold},
   list: {paddingHorizontal: spacing.screen},
 });

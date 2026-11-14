@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {Icon, type IconName} from '../../components/Icon';
-import {colors, radius, spacing, type} from '../../theme/tokens';
+import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
 import {instructorInitials, instructorName} from '../../data/instructor';
 import {Drift} from './DashboardScreen';
 import {Field, Footer, IconBadge, Reveal, Row, SectionTitle, SelectField, StackHeader, TabHeader, font} from './shared';
@@ -31,9 +31,9 @@ export function MoreScreen({onOpen, onNotifications, onLogout}: {onOpen: (link: 
       <Reveal order={links.length + 1}>
         <Pressable onPress={confirm} style={({pressed}) => [styles.logout, pressed && styles.pressed]} accessibilityRole="button">
           <Icon name="logout" size={20} color={colors.danger} />
-          <Text style={[styles.logoutText, font]}>Log out</Text>
+          <Text style={[font, styles.logoutText]}>Log out</Text>
         </Pressable>
-        <Text style={[styles.signedIn, font]}>Signed in as {instructorName}</Text>
+        <Text style={[font, styles.signedIn]}>Signed in as {instructorName}</Text>
       </Reveal>
     </View>
   </ScrollView>;
@@ -77,13 +77,13 @@ export function LiveSessionsScreen({onBack}: {onBack: () => void}) {
       <Reveal order={0} style={styles.hero}>
         <Drift style={styles.heroBig} range={8} duration={3200} />
         <Drift style={styles.heroDot} range={-6} duration={2400} />
-        <Text style={[styles.heroLabel, font]}>Next session</Text>
-        <Text style={[styles.heroTitle, font]}>Pivot tables Q&A</Text>
-        <Text style={[styles.heroLabel, font]}>Thu 22 Oct, 4:00 PM</Text>
+        <Text style={[font, styles.heroLabel]}>Next session</Text>
+        <Text style={[font, styles.heroTitle]}>Pivot tables Q&A</Text>
+        <Text style={[font, styles.heroLabel]}>Thu 22 Oct, 4:00 PM</Text>
         <Animated.View style={{transform: [{scale: pop}], alignSelf: 'flex-start'}}>
           <Pressable onPress={copy} style={styles.heroButton} accessibilityRole="button">
             {copied && <Icon name="check" size={18} color={colors.white} />}
-            <Text style={[styles.heroButtonText, font]}>{copied ? 'Link copied' : 'Copy join link'}</Text>
+            <Text style={[font, styles.heroButtonText]}>{copied ? 'Link copied' : 'Copy join link'}</Text>
           </Pressable>
         </Animated.View>
       </Reveal>
@@ -121,19 +121,19 @@ export function CertificateScreen({onBack, onSave}: {onBack: () => void; onSave:
         <Animated.View style={[styles.cert, {borderColor: look.border, backgroundColor: look.bg, borderWidth: template === 'Modern' ? 2 : 1.5},
           {opacity: flip, transform: [{scale: flip.interpolate({inputRange: [0, 1], outputRange: [0.94, 1]})}]}]}>
           {template === 'Modern' && <View style={styles.certBand} />}
-          {logo && <View style={styles.logoChip}><Text style={[styles.logoChipText, font]}>{instructorInitials}</Text></View>}
-          <Text style={[styles.certTitle, font, look.serif && styles.serif]}>Certificate of completion</Text>
-          <Text style={[styles.certName, font, look.serif && styles.serif]}>Learner name</Text>
-          <Text style={[styles.certCourse, font]}>Data analysis in Excel</Text>
+          {logo && <View style={styles.logoChip}><Text style={[font, styles.logoChipText]}>{instructorInitials}</Text></View>}
+          <Text style={[font, styles.certTitle, look.serif && styles.serif]}>Certificate of completion</Text>
+          <Text style={[font, styles.certName, look.serif && styles.serif]}>Learner name</Text>
+          <Text style={[font, styles.certCourse]}>Data analysis in Excel</Text>
           <View style={styles.certFoot}>
             <View style={styles.seal}><Icon name="award" size={20} color={colors.blue900} /></View>
-            {signature && <Text style={[styles.signature, font]}>{instructorName}</Text>}
+            {signature && <Text style={[font, styles.signature]}>{instructorName}</Text>}
           </View>
         </Animated.View>
       </Reveal>
       <Reveal order={1} style={styles.chips}>
         {templates.map(t => <Pressable key={t} onPress={() => setTemplate(t)} style={[styles.chip, template === t && styles.chipOn]} accessibilityRole="tab" accessibilityState={{selected: template === t}}>
-          <Text style={[styles.chipText, font, template === t && styles.chipTextOn]}>{t}</Text>
+          <Text style={[font, styles.chipText, template === t && styles.chipTextOn]}>{t}</Text>
         </Pressable>)}
       </Reveal>
       <Reveal order={2}>
@@ -141,11 +141,11 @@ export function CertificateScreen({onBack, onSave}: {onBack: () => void; onSave:
         <View style={styles.pair}>
           <Pressable onPress={() => setLogo(!logo)} style={[styles.outline, logo && styles.outlineOn]} accessibilityRole="button">
             {logo && <Icon name="check" size={18} color={colors.blue700} />}
-            <Text style={[styles.outlineText, font]}>{logo ? 'Logo added' : 'Upload logo'}</Text>
+            <Text style={[font, styles.outlineText]}>{logo ? 'Logo added' : 'Upload logo'}</Text>
           </Pressable>
           <Pressable onPress={() => setSignature(!signature)} style={[styles.outline, signature && styles.outlineOn]} accessibilityRole="button">
             {signature && <Icon name="check" size={18} color={colors.blue700} />}
-            <Text style={[styles.outlineText, font]}>{signature ? 'Signed' : 'Signature'}</Text>
+            <Text style={[font, styles.outlineText]}>{signature ? 'Signed' : 'Signature'}</Text>
           </Pressable>
         </View>
       </Reveal>
@@ -161,22 +161,22 @@ const styles = StyleSheet.create({
   body: {paddingHorizontal: spacing.screen, paddingBottom: 24},
   pressed: {opacity: 0.75},
   logout: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 52, marginTop: 28, borderRadius: radius.button, borderWidth: 1, borderColor: '#F1C7C7', backgroundColor: '#FDF3F3'},
-  logoutText: {fontSize: type.body, color: colors.danger, fontWeight: '700'},
+  logoutText: {fontSize: type.body, color: colors.danger, fontFamily: fonts.bold},
   signedIn: {fontSize: type.caption, color: colors.muted, textAlign: 'center', marginTop: 10},
   hero: {marginHorizontal: spacing.screen, marginTop: 4, backgroundColor: colors.blue900, borderRadius: 20, padding: 18, overflow: 'hidden'},
   heroBig: {position: 'absolute', right: 12, top: 4, width: 90, height: 90, borderRadius: 45, backgroundColor: colors.navy},
   heroDot: {position: 'absolute', right: 26, top: 96, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.marigold},
   heroLabel: {fontSize: type.caption, color: colors.white, opacity: 0.85},
-  heroTitle: {fontSize: 24, color: colors.white, fontWeight: '800', marginVertical: 6},
+  heroTitle: {fontSize: 24, color: colors.white, fontFamily: fonts.display, marginVertical: 6},
   heroButton: {flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: colors.blue700, borderRadius: 10, paddingHorizontal: 18, height: 42},
-  heroButtonText: {fontSize: type.body, color: colors.white, fontWeight: '700'},
+  heroButtonText: {fontSize: type.body, color: colors.white, fontFamily: fonts.bold},
   certFrame: {padding: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white},
   cert: {borderRadius: 10, alignItems: 'center', paddingVertical: 28, paddingHorizontal: 16, overflow: 'hidden'},
   certBand: {position: 'absolute', left: 0, top: 0, bottom: 0, width: 8, backgroundColor: colors.marigold},
   logoChip: {position: 'absolute', top: 10, left: 14, width: 30, height: 30, borderRadius: 8, backgroundColor: colors.blue900, alignItems: 'center', justifyContent: 'center'},
-  logoChipText: {fontSize: 11, color: colors.white, fontWeight: '800'},
-  certTitle: {fontSize: type.label, color: colors.ink, fontWeight: '800'},
-  certName: {fontSize: type.body, color: colors.ink, fontWeight: '800', marginTop: 14},
+  logoChipText: {fontSize: 11, color: colors.white, fontFamily: fonts.bold},
+  certTitle: {fontSize: type.label, color: colors.ink, fontFamily: fonts.bold},
+  certName: {fontSize: type.body, color: colors.ink, fontFamily: fonts.display, marginTop: 14},
   certCourse: {fontSize: type.caption, color: colors.muted, marginTop: 6},
   serif: {fontFamily: 'Georgia'},
   certFoot: {flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 16},
@@ -185,11 +185,11 @@ const styles = StyleSheet.create({
   chips: {flexDirection: 'row', gap: 8, marginTop: 18},
   chip: {height: 36, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.white, justifyContent: 'center'},
   chipOn: {backgroundColor: colors.blue700, borderColor: colors.blue700},
-  chipText: {fontSize: type.small, color: colors.ink, fontWeight: '600'},
-  chipTextOn: {color: colors.white, fontWeight: '700'},
+  chipText: {fontSize: type.small, color: colors.ink, fontFamily: fonts.semibold},
+  chipTextOn: {color: colors.white, fontFamily: fonts.bold},
   pair: {flexDirection: 'row', gap: 12, marginTop: 6},
   outline: {flex: 1, flexDirection: 'row', gap: 6, height: 50, borderRadius: 10, borderWidth: 1.5, borderColor: colors.sky, alignItems: 'center', justifyContent: 'center'},
   outlineOn: {backgroundColor: colors.blue100},
-  outlineText: {fontSize: type.body, color: colors.blue700, fontWeight: '700'},
+  outlineText: {fontSize: type.body, color: colors.blue700, fontFamily: fonts.bold},
   assign: {marginTop: 18},
 });

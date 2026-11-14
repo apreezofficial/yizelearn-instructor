@@ -4,7 +4,7 @@ import {ProgressBar} from '../../components/Chalkboard';
 import {Icon} from '../../components/Icon';
 import {EmptyState} from '../../components/States';
 import {discussion, gradingQueue, students, studentDetail, submission, type GradeStatus, type StudentFilter} from '../../data/instructor';
-import {colors, radius, spacing, type} from '../../theme/tokens';
+import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, Footer, IconBadge, Pill, Row, Segments, SectionTitle, StackHeader, TabHeader, type Tone} from './shared';
 
 const gradeTone: Record<GradeStatus, Tone> = {Pending: 'amber', Overdue: 'red', Graded: 'green'};
@@ -31,32 +31,32 @@ export function GradeSubmissionScreen({onBack, onSave, onRubric}: {onBack: () =>
       <View style={styles.fileCard}>
         <IconBadge name="file" size={40} square />
         <View style={styles.flex}>
-          <Text style={[styles.title, font]}>{submission.file}</Text>
-          <Text style={[styles.meta, font]}>{submission.learner}, {submission.size}</Text>
+          <Text style={[font, styles.title]}>{submission.file}</Text>
+          <Text style={[font, styles.meta]}>{submission.learner}, {submission.size}</Text>
         </View>
       </View>
 
       <View style={styles.similarity}>
-        <Text style={[styles.simLabel, font]}>Similarity report</Text>
+        <Text style={[font, styles.simLabel]}>Similarity report</Text>
         <View style={styles.simRow}>
-          <Text style={[styles.simValue, font]}>{submission.similarity}%</Text>
+          <Text style={[font, styles.simValue]}>{submission.similarity}%</Text>
           <View style={styles.flex}><ProgressBar value={submission.similarity} fill={colors.success} track="rgba(46, 139, 103, 0.15)" height={6} /></View>
         </View>
-        <Text style={[styles.simNote, font]}>Low</Text>
+        <Text style={[font, styles.simNote]}>Low</Text>
       </View>
 
       <View style={styles.pair}>
         <View style={styles.flex}>
-          <Text style={[styles.label, font]}>Score</Text>
-          <TextInput value={score} onChangeText={setScore} style={[styles.input, font]} />
+          <Text style={[font, styles.label]}>Score</Text>
+          <TextInput value={score} onChangeText={setScore} style={[font, styles.input]} />
         </View>
         <View style={styles.flex}>
-          <Text style={[styles.label, font]}>Rubric</Text>
-          <Pressable onPress={onRubric} style={styles.input} accessibilityRole="button"><Text style={[styles.rubric, font]}>Open rubric</Text></Pressable>
+          <Text style={[font, styles.label]}>Rubric</Text>
+          <Pressable onPress={onRubric} style={styles.input} accessibilityRole="button"><Text style={[font, styles.rubric]}>Open rubric</Text></Pressable>
         </View>
       </View>
 
-      <Text style={[styles.label, font, styles.gap]}>Feedback</Text>
+      <Text style={[font, styles.label, styles.gap]}>Feedback</Text>
       <TextInput value={feedback} onChangeText={setFeedback} placeholder="Clear dashboard. Add a title to chart 2." placeholderTextColor={colors.muted} multiline style={[styles.input, styles.feedback, font]} />
     </ScrollView>
     <Footer label="Save grade" onPress={onSave} />
@@ -73,7 +73,7 @@ export function StudentsScreen({onOpen, onNotifications}: {onOpen: () => void; o
     <TabHeader title="Students" onBell={onNotifications} />
     <View style={styles.search}>
       <Icon name="search" size={18} color={colors.ink} />
-      <TextInput value={query} onChangeText={setQuery} placeholder="Search students" placeholderTextColor={colors.muted} style={[styles.searchInput, font]} />
+      <TextInput value={query} onChangeText={setQuery} placeholder="Search students" placeholderTextColor={colors.muted} style={[font, styles.searchInput]} />
     </View>
     <Segments items={['All', 'Behind', 'Done'] as const} active={filter} onSelect={setFilter} />
     <FlatList data={rows} keyExtractor={s => s.id} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
@@ -90,21 +90,21 @@ export function StudentDetailScreen({onBack, onMessage}: {onBack: () => void; on
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.profile}>
         <Avatar initials={d.initials} size={84} />
-        <Text style={[styles.name, font]}>{d.name}</Text>
-        <Text style={[styles.meta, font]}>Enrolled {d.enrolled}</Text>
+        <Text style={[font, styles.name]}>{d.name}</Text>
+        <Text style={[font, styles.meta]}>Enrolled {d.enrolled}</Text>
       </View>
       <View style={styles.progressCard}>
-        <Text style={[styles.meta, font]}>{d.course}</Text>
+        <Text style={[font, styles.meta]}>{d.course}</Text>
         <View style={styles.progressBar}><ProgressBar value={d.progress} fill={colors.blue700} track={colors.sand} height={6} /></View>
         <View style={styles.progressFoot}>
-          <Text style={[styles.bigPct, font]}>{d.progress}%</Text>
-          <Text style={[styles.meta, font]}>{d.lessonsDone} of {d.lessonsTotal} lessons</Text>
+          <Text style={[font, styles.bigPct]}>{d.progress}%</Text>
+          <Text style={[font, styles.meta]}>{d.lessonsDone} of {d.lessonsTotal} lessons</Text>
         </View>
       </View>
       <SectionTitle title="Grades" />
       {d.grades.map(g => <View key={g.title} style={styles.gradeRow}>
-        <Text style={[styles.gradeLabel, font]}>{g.title}</Text>
-        <Text style={[styles.score, font]}>{g.score}</Text>
+        <Text style={[font, styles.gradeLabel]}>{g.title}</Text>
+        <Text style={[font, styles.score]}>{g.score}</Text>
       </View>)}
     </ScrollView>
     <Footer label="Message student" onPress={onMessage} />
@@ -123,19 +123,19 @@ export function DiscussionScreen({onBack}: {onBack: () => void}) {
         <View style={styles.qHead}>
           <Avatar initials={q.initials} size={32} />
           <View style={styles.flex}>
-            <Text style={[styles.title, font]}>{q.author}</Text>
-            <Text style={[styles.meta, font]}>{q.meta}</Text>
+            <Text style={[font, styles.title]}>{q.author}</Text>
+            <Text style={[font, styles.meta]}>{q.meta}</Text>
           </View>
         </View>
-        <Text style={[styles.qText, font]}>{q.text}</Text>
+        <Text style={[font, styles.qText]}>{q.text}</Text>
       </View>
       {sent.map((text, i) => <View key={i} style={styles.reply}>
-        <Text style={[styles.replyLabel, font]}>You</Text>
-        <Text style={[styles.replyText, font]}>{text}</Text>
+        <Text style={[font, styles.replyLabel]}>You</Text>
+        <Text style={[font, styles.replyText]}>{text}</Text>
       </View>)}
     </ScrollView>
     <View style={styles.composer}>
-      <TextInput value={reply} onChangeText={setReply} onSubmitEditing={send} placeholder="Write a reply" placeholderTextColor={colors.muted} style={[styles.composerInput, font]} />
+      <TextInput value={reply} onChangeText={setReply} onSubmitEditing={send} placeholder="Write a reply" placeholderTextColor={colors.muted} style={[font, styles.composerInput]} />
       <Pressable onPress={send} style={styles.send} accessibilityRole="button" accessibilityLabel="Send reply">
         <Icon name="send" size={20} color={colors.white} />
       </Pressable>
@@ -148,36 +148,36 @@ const styles = StyleSheet.create({
   list: {paddingHorizontal: spacing.screen, paddingBottom: 28, flexGrow: 1},
   content: {paddingHorizontal: spacing.screen, paddingBottom: 28},
   flex: {flex: 1},
-  title: {fontSize: type.label, color: colors.ink, fontWeight: '800'},
+  title: {fontSize: type.label, color: colors.ink, fontFamily: fonts.display},
   meta: {fontSize: type.caption, color: colors.muted, marginTop: 3},
   search: {flexDirection: 'row', alignItems: 'center', gap: 10, height: 50, marginHorizontal: spacing.screen, marginBottom: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.barBg, paddingHorizontal: 18},
   searchInput: {flex: 1, fontSize: type.body, color: colors.ink, paddingVertical: 0},
   fileCard: {flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.barBg, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 14},
   similarity: {backgroundColor: '#E4F1EA', borderRadius: radius.card, padding: 16, marginTop: 14},
-  simLabel: {fontSize: type.small, color: colors.ink, fontWeight: '700'},
+  simLabel: {fontSize: type.small, color: colors.ink, fontFamily: fonts.bold},
   simRow: {flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8, marginRight: 60},
-  simValue: {fontSize: type.title, color: '#2E7D5B', fontWeight: '800'},
-  simNote: {alignSelf: 'flex-end', fontSize: type.caption, color: '#2E7D5B', fontWeight: '700', marginTop: 4},
+  simValue: {fontSize: type.title, color: '#2E7D5B', fontFamily: fonts.bold},
+  simNote: {alignSelf: 'flex-end', fontSize: type.caption, color: '#2E7D5B', fontFamily: fonts.bold, marginTop: 4},
   pair: {flexDirection: 'row', gap: 12, marginTop: 16},
-  label: {fontSize: type.caption, color: colors.ink, fontWeight: '700', marginBottom: 6},
+  label: {fontSize: type.caption, color: colors.ink, fontFamily: fonts.bold, marginBottom: 6},
   input: {minHeight: 52, borderRadius: radius.field, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.barBg, paddingHorizontal: 16, justifyContent: 'center', fontSize: type.body, color: colors.ink},
   rubric: {fontSize: type.body, color: colors.blue700},
   feedback: {minHeight: 130, paddingTop: 14, textAlignVertical: 'top'},
   gap: {marginTop: 18},
   profile: {alignItems: 'center', gap: 6, paddingBottom: 18},
-  name: {fontSize: type.heading, color: colors.ink, fontWeight: '800', marginTop: 10},
+  name: {fontSize: type.heading, color: colors.ink, fontFamily: fonts.bold, marginTop: 10},
   progressCard: {backgroundColor: colors.blue50, borderRadius: radius.card, padding: 16},
   progressBar: {marginTop: 12},
   progressFoot: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10},
-  bigPct: {fontSize: type.heading + 2, color: colors.ink, fontWeight: '800'},
+  bigPct: {fontSize: type.heading + 2, color: colors.ink, fontFamily: fonts.bold},
   gradeRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 48, borderBottomWidth: 1, borderBottomColor: colors.line},
   gradeLabel: {fontSize: type.small, color: colors.muted},
-  score: {fontSize: type.small, color: colors.ink, fontWeight: '800'},
+  score: {fontSize: type.small, color: colors.ink, fontFamily: fonts.bold},
   question: {backgroundColor: colors.barBg, borderWidth: 1, borderColor: colors.sandLine, borderRadius: radius.card, padding: 16},
   qHead: {flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12},
   qText: {fontSize: type.label, color: colors.ink, lineHeight: 22},
   reply: {alignSelf: 'flex-end', maxWidth: '84%', backgroundColor: colors.sky, borderRadius: radius.card, padding: 14, marginTop: 12},
-  replyLabel: {fontSize: type.caption, color: colors.white, fontWeight: '800', marginBottom: 4},
+  replyLabel: {fontSize: type.caption, color: colors.white, fontFamily: fonts.bold, marginBottom: 4},
   replyText: {fontSize: type.label, color: colors.white, lineHeight: 21},
   composer: {flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.screen, paddingVertical: 12},
   composerInput: {flex: 1, height: 52, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.sandLine, backgroundColor: colors.barBg, paddingHorizontal: 18, fontSize: type.body, color: colors.ink},
