@@ -45,6 +45,7 @@ function InstructorApp() {
   const [thread, setThread] = useState<Thread>(threads[0]);
   const [draftTitle, setDraftTitle] = useState('Data analysis in Excel');
   const [feedback, setFeedback] = useState(false);
+  const [gradeId, setGradeId] = useState('');
   // Pages visited since the last tab, so Android's back button retraces them.
   const history = useRef<Page[]>([]);
   const nav = (p: Page) => {
@@ -88,7 +89,7 @@ function InstructorApp() {
   const screen = (() => {
     switch (page) {
       case 'Login': return <LoginScreen onSignUp={() => Alert.alert('Instructor access', 'Instructor accounts are set up by your admin. Ask them for an invitation.')} onSignedIn={u => { setUser(u); nav('Dashboard'); }} />;
-      case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={() => nav('Grade')} />;
+      case 'Dashboard': return <DashboardScreen onGrading={() => nav('Grading')} onNotifications={() => nav('Notifications')} onGradeItem={id => { setGradeId(id); nav('Grade'); }} />;
       case 'Courses': return <CoursesScreen onOpen={openCourse} onNew={() => { setCourse(undefined); setDraftTitle('New course'); nav('Setup'); }} onNotifications={() => nav('Notifications')} />;
       case 'Students': return <StudentsScreen onOpen={() => nav('Student')} onNotifications={() => nav('Notifications')} />;
       case 'Messages': return <MessagesScreen onOpen={t => { setThread(t); nav('Conversation'); }} onNotifications={() => nav('Notifications')} />;
@@ -111,8 +112,8 @@ function InstructorApp() {
       case 'Live': return <LiveSessionsScreen onBack={() => nav('More')} />;
       case 'Certificate': return <CertificateScreen onBack={() => nav('More')} onSave={() => nav('More')} />;
       case 'Notifications': return <EmptyState title="Notifications" message="This screen is waiting on its design." actionLabel="Back" onAction={() => nav('Dashboard')} />;
-      case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={() => nav('Grade')} onNotifications={() => nav('Notifications')} />;
-      case 'Grade': return <GradeSubmissionScreen onBack={() => nav('Grading')} onSave={() => nav('Grading')} onRubric={() => Alert.alert('Rubric', 'Rubrics are not connected yet.')} />;
+      case 'Grading': return <GradingScreen onBack={() => nav('Dashboard')} onOpen={id => { setGradeId(id); nav('Grade'); }} onNotifications={() => nav('Notifications')} />;
+      case 'Grade': return <GradeSubmissionScreen key={gradeId} id={gradeId} onBack={() => nav('Grading')} onSave={() => nav('Grading')} />;
       case 'Setup': return <SetupScreen title={draftTitle} onBack={() => nav('Courses')} onStep={onStep} />;
       case 'Curriculum': return <CurriculumScreen courseId={course?.id} onBack={() => nav('Setup')} onPick={onPick} />;
       case 'Quiz': return <QuizBuilderScreen onBack={() => nav('Curriculum')} onSave={() => nav('Curriculum')} />;

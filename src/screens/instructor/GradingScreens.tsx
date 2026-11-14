@@ -1,74 +1,96 @@
-import React, {useMemo, useState} from 'react';
-import {FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {ProgressBar} from '../../components/Chalkboard';
 import {Icon} from '../../components/Icon';
 import {EmptyState} from '../../components/States';
-import {discussion, gradingQueue, students, studentDetail, submission, type GradeStatus, type StudentFilter} from '../../data/instructor';
+import {instructorApi, type GradingItem} from '../../api/endpoints';
+import {discussion, studentDetail, type GradeStatus, type StudentFilter} from '../../data/instructor';
 import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, Footer, IconBadge, Pill, Row, Segments, SectionTitle, StackHeader, TabHeader, type Tone} from './shared';
 
+const initialsOf = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const ago = (iso: string) => { const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000); return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
+const toStatus = (s: GradingItem['status']): GradeStatus => (s === 'graded' ? 'Graded' : s === 'overdue' ? 'Overdue' : 'Pending');
+
+function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState('');
+  const run = useCallback(() => { setError(''); load().then(setData, e => setError(e instanceof Error ? e.message : 'Could not load this.')); }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(run, [run]);
+  return {data, error, reload: run};
+}
+function LoadState({error, reload}: {error: string; reload: () => void}) {
+  return error ? <Pressable onPress={reload} accessibilityRole="button" style={{margin: spacing.screen}}><Text style={[font, {fontSize: 15, color: colors.blue700, fontFamily: fonts.bold}]}>{error} Tap to try again.</Text></Pressable> : <ActivityIndicator color={colors.blue700} style={{marginTop: 24}} />;
+}
+
 const gradeTone: Record<GradeStatus, Tone> = {Pending: 'amber', Overdue: 'red', Graded: 'green'};
 
-export function GradingScreen({onBack, onOpen}: {onBack: () => void; onOpen: () => void; onNotifications?: () => void}) {
+export function GradingScreen({onBack, onOpen}: {onBack: () => void; onOpen: (id: string) => void; onNotifications?: () => void}) {
   const [filter, setFilter] = useState<'Pending' | 'Graded'>('Pending');
-  const rows = useMemo(() => gradingQueue.filter(g => (filter === 'Graded' ? g.status === 'Graded' : true)), [filter]);
+  const {data, error, reload} = useLoad(() => instructorApi.grading(), []);
+  const rows = useMemo(() => (data?.data ?? []).filter(g => (filter === 'Graded' ? g.status === 'graded' : g.status !== 'graded')), [data, filter]);
   return <View style={styles.screen}>
     <StackHeader title="Grading" onBack={onBack} />
     <Segments items={['Pending', 'Graded'] as const} active={filter} onSelect={setFilter} />
-    <FlatList data={rows} keyExtractor={g => g.id} contentContainerStyle={styles.list}
+    {!data ? <LoadState error={error} reload={reload} /> : <FlatList data={rows} keyExtractor={g => g.id} contentContainerStyle={styles.list}
       ListEmptyComponent={<EmptyState title={filter === 'Pending' ? 'Nothing to grade' : 'No graded work yet'} message="Submissions will appear here." />}
-      renderItem={({item, index}) => <Row order={index} onPress={onOpen} leading={<Avatar initials={item.initials} />} title={item.learner}
-        meta={`${item.title}, ${item.time}`} trailing={<Pill label={item.status} tone={gradeTone[item.status]} />} />} />
+      renderItem={({item, index}) => <Row order={index} onPress={() => onOpen(item.id)} leading={<Avatar initials={initialsOf(item.learner.fullName)} />} title={item.learner.fullName}
+        meta={`${item.title}, ${ago(item.submittedAt)}`} trailing={<Pill label={toStatus(item.status)} tone={gradeTone[toStatus(item.status)]} />} />} />}
   </View>;
 }
 
-export function GradeSubmissionScreen({onBack, onSave, onRubric}: {onBack: () => void; onSave: () => void; onRubric: () => void}) {
-  const [score, setScore] = useState(submission.score);
-  const [feedback, setFeedback] = useState(submission.feedback);
+export function GradeSubmissionScreen({id, onBack, onSave}: {id: string; onBack: () => void; onSave: () => void}) {
+  const {data, error, reload} = useLoad(() => instructorApi.submission(id), [id]);
+  const [score, setScore] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const shown = score ?? (data?.score != null ? String(data.score) : '');
+  const note = feedback ?? data?.feedback ?? '';
+  const value = Number(shown);
+  const valid = shown.trim() !== '' && Number.isFinite(value) && value >= 0 && (!data || value <= data.maxScore);
+  const save = async () => {
+    if (!valid || busy) return;
+    setBusy(true);
+    try { await instructorApi.grade(id, value, note); onSave(); }
+    catch (e) { Alert.alert('Could not save the grade', e instanceof Error ? e.message : 'Try again.'); }
+    finally { setBusy(false); }
+  };
+  const file = data?.files[0];
+  const sim = data?.similarity?.percent ?? data?.similarity?.score;
   return <View style={styles.screen}>
     <StackHeader title="Grade submission" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    {!data ? <LoadState error={error} reload={reload} /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.fileCard}>
         <IconBadge name="file" size={40} square />
         <View style={styles.flex}>
-          <Text style={[font, styles.title]}>{submission.file}</Text>
-          <Text style={[font, styles.meta]}>{submission.learner}, {submission.size}</Text>
+          <Text style={[font, styles.title]}>{file?.fileName ?? 'No file attached'}</Text>
+          <Text style={[font, styles.meta]}>{data.learner.fullName}{file ? `, ${Math.max(1, Math.round(file.sizeBytes / 1024))} KB` : ''}</Text>
         </View>
       </View>
-
-      <View style={styles.similarity}>
+      {data.note ? <Text style={[font, styles.meta, styles.gap]}>“{data.note}”</Text> : null}
+      {sim != null && <View style={styles.similarity}>
         <Text style={[font, styles.simLabel]}>Similarity report</Text>
         <View style={styles.simRow}>
-          <Text style={[font, styles.simValue]}>{submission.similarity}%</Text>
-          <View style={styles.flex}><ProgressBar value={submission.similarity} fill={colors.success} track="rgba(46, 139, 103, 0.15)" height={6} /></View>
+          <Text style={[font, styles.simValue]}>{Math.round(sim)}%</Text>
+          <View style={styles.flex}><ProgressBar value={sim > 1 ? sim / 100 : sim} fill={colors.success} track="rgba(46, 139, 103, 0.15)" height={6} /></View>
         </View>
-        <Text style={[font, styles.simNote]}>Low</Text>
-      </View>
-
-      <View style={styles.pair}>
-        <View style={styles.flex}>
-          <Text style={[font, styles.label]}>Score</Text>
-          <TextInput value={score} onChangeText={setScore} style={[font, styles.input]} />
-        </View>
-        <View style={styles.flex}>
-          <Text style={[font, styles.label]}>Rubric</Text>
-          <Pressable onPress={onRubric} style={styles.input} accessibilityRole="button"><Text style={[font, styles.rubric]}>Open rubric</Text></Pressable>
-        </View>
-      </View>
-
+      </View>}
+      <Text style={[font, styles.label, styles.gap]}>Score (out of {data.maxScore})</Text>
+      <TextInput value={shown} onChangeText={setScore} keyboardType="decimal-pad" style={[font, styles.input]} />
       <Text style={[font, styles.label, styles.gap]}>Feedback</Text>
-      <TextInput value={feedback} onChangeText={setFeedback} placeholder="Clear dashboard. Add a title to chart 2." placeholderTextColor={colors.muted} multiline style={[styles.input, styles.feedback, font]} />
-    </ScrollView>
-    <Footer label="Save grade" onPress={onSave} />
+      <TextInput value={note} onChangeText={setFeedback} placeholder="What went well, and what to improve" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.feedback, font]} />
+    </ScrollView>}
+    <Footer label={busy ? 'Saving…' : 'Save grade'} disabled={!data || !valid || busy} onPress={save} />
   </View>;
 }
 
 export function StudentsScreen({onOpen, onNotifications}: {onOpen: () => void; onNotifications: () => void}) {
   const [filter, setFilter] = useState<StudentFilter>('All');
   const [query, setQuery] = useState('');
-  const rows = useMemo(() => students.filter(s =>
-    (filter === 'All' || (filter === 'Behind' ? s.behind : s.progress === 100)) &&
-    s.name.toLowerCase().includes(query.trim().toLowerCase())), [filter, query]);
+  const {data, error, reload} = useLoad(() => instructorApi.students(), []);
+  const rows = useMemo(() => (data?.data ?? []).filter(s =>
+    (filter === 'All' || (filter === 'Behind' ? s.progressPct < 30 && s.progressPct < 100 : s.progressPct === 100)) &&
+    s.learner.fullName.toLowerCase().includes(query.trim().toLowerCase())), [data, filter, query]);
   return <View style={styles.screen}>
     <TabHeader title="Students" onBell={onNotifications} />
     <View style={styles.search}>
@@ -76,10 +98,10 @@ export function StudentsScreen({onOpen, onNotifications}: {onOpen: () => void; o
       <TextInput value={query} onChangeText={setQuery} placeholder="Search students" placeholderTextColor={colors.muted} style={[font, styles.searchInput]} />
     </View>
     <Segments items={['All', 'Behind', 'Done'] as const} active={filter} onSelect={setFilter} />
-    <FlatList data={rows} keyExtractor={s => s.id} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
-      ListEmptyComponent={<EmptyState title="No students found" message="Try another search or filter." />}
-      renderItem={({item, index}) => <Row order={index} onPress={onOpen} leading={<Avatar initials={item.initials} />} title={item.name} meta={item.course}
-        trailing={item.note === 'Pending' ? <Pill label="Pending" tone="amber" /> : item.note === 'Done' ? <Pill label="Done" tone="green" /> : <Icon name="next" size={18} color={colors.ink} />} />} />
+    {!data ? <LoadState error={error} reload={reload} /> : <FlatList data={rows} keyExtractor={(s, i) => `${s.learner.id}-${s.course.id}-${i}`} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
+      ListEmptyComponent={<EmptyState title={data.data.length ? 'No students found' : 'No students yet'} message={data.data.length ? 'Try another search or filter.' : 'Learners who enrol in your courses will appear here.'} />}
+      renderItem={({item, index}) => <Row order={index} onPress={onOpen} leading={<Avatar initials={item.learner.initials || initialsOf(item.learner.fullName)} />} title={item.learner.fullName} meta={`${item.course.title}, ${item.progressPct}%`}
+        trailing={item.progressPct === 100 ? <Pill label="Done" tone="green" /> : <Icon name="next" size={18} color={colors.ink} />} />} />}
   </View>;
 }
 

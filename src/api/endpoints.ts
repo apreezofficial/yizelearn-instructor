@@ -44,6 +44,7 @@ export const instructorApi = {
   addLesson: (moduleId: string, type: LessonRow['type'], title: string, isPreview = false) => request<LessonRow>(`/instructor/modules/${moduleId}/lessons`, {method: 'POST', body: {type, title, isPreview}}),
   publish: (courseId: string) => request<unknown>(`/instructor/courses/${courseId}/publish`, {method: 'POST'}),
   grading: () => request<Page<GradingItem>>('/instructor/submissions?limit=50'),
+  submission: (id: string) => request<{id: string; learner: {fullName: string}; files: {fileName: string; sizeBytes: number}[]; note: string | null; score: number | null; maxScore: number; feedback: string | null; similarity?: {score?: number; percent?: number} | null}>(`/instructor/submissions/${id}`),
   grade: (submissionId: string, score: number, feedback: string) => request<unknown>(`/instructor/submissions/${submissionId}/grade`, {method: 'PUT', body: {score, feedback, rubricScores: []}}),
   students: () => request<Page<{learner: {id: string; fullName: string; initials: string}; course: {id: string; title: string}; progressPct: number; status: string | null; lastActiveAt: string | null}>>('/instructor/students?limit=50'),
 };

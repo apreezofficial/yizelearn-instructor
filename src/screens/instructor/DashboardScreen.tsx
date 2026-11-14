@@ -4,7 +4,7 @@ import {instructorApi, type Dashboard, type GradingItem} from '../../api/endpoin
 import {colors, radius, resolveColor, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, IconBadge, Pill, Reveal, Row, SectionTitle, TabHeader} from './shared';
 
-type Props = {onGrading: () => void; onNotifications: () => void; onGradeItem: () => void};
+type Props = {onGrading: () => void; onNotifications: () => void; onGradeItem: (id: string) => void};
 
 const outExpo = Easing.bezier(0.16, 1, 0.3, 1);
 const BAR_MAX = 72;
@@ -144,7 +144,7 @@ export function DashboardScreen({onGrading, onNotifications, onGradeItem}: Props
     <View style={styles.list}>
       <SectionTitle title="To grade" action="See all" onAction={onGrading} />
       {dashboard.pendingGrades.length === 0 && <Text style={[font, styles.barDay]}>Nothing to grade right now.</Text>}
-      {dashboard.pendingGrades.map((g, i) => <Row key={g.id} order={4 + i} onPress={onGradeItem}
+      {dashboard.pendingGrades.map((g, i) => <Row key={g.id} order={4 + i} onPress={() => onGradeItem(g.id)}
         leading={<Avatar initials={g.learner.split(' ').map(w => w[0]).slice(0, 2).join('')} size={44} />} title={g.title} meta={`${g.learner}, ${g.time}`}
         trailing={<Pill label="Pending" tone="amber" />} />)}
     </View>
