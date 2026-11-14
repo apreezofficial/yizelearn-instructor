@@ -1,3 +1,4 @@
+import type {ColorValue} from 'react-native';
 import React from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import type {Course} from '../api/types';
@@ -48,7 +49,7 @@ export function CourseCard({course, index, onPress}: {course: Course; index: num
   </Pressable>;
 }
 
-export function RoundButton({icon, onPress, size = 44, color = colors.ink, style, label}: {icon: IconName; onPress?: () => void; size?: number; color?: string; style?: object; label?: string}) {
+export function RoundButton({icon, onPress, size = 44, color = colors.ink, style, label}: {icon: IconName; onPress?: () => void; size?: number; color?: ColorValue; style?: object; label?: string}) {
   return <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} style={({pressed}) => [styles.round, {width: size, height: size, borderRadius: size / 2}, style, pressed && styles.pressed]}><Icon name={icon} size={size * 0.52} color={color} /></Pressable>;
 }
 

@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {Animated, Easing, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View, type ViewStyle} from 'react-native';
+import {Animated, type ColorValue, Easing, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View, type ViewStyle} from 'react-native';
 import {Icon, type IconName} from '../../components/Icon';
 import {colors, fonts, radius, spacing, type} from '../../theme/tokens';
 import {instructorInitials} from '../../data/instructor';
@@ -46,7 +46,7 @@ export function IconBadge({name, size = 44, square}: {name: IconName; size?: num
 }
 
 export type Tone = 'blue' | 'green' | 'amber' | 'red' | 'grey';
-const tones: Record<Tone, {bg: string; text: string}> = {
+const tones: Record<Tone, {bg: ColorValue; text: ColorValue}> = {
   blue: {bg: colors.blue100, text: colors.blue900},
   green: {bg: '#E2F2EA', text: '#2E7D5B'},
   amber: {bg: '#FBEFD6', text: '#93650F'},

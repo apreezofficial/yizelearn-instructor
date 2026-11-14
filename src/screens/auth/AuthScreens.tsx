@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {BrandMark} from '../../components/BrandLogo';
 import {ActivityIndicator, Alert, Animated, Easing, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputInstance, type TextInputProps, View} from 'react-native';
 import {ApiError, auth} from '../../api/client';
 import {authApi, type Organisation} from '../../api/endpoints';
@@ -45,7 +46,7 @@ export function LoginScreen({onBack, onSignUp, onSso, onSent}: LoginProps) {
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
     {onBack && <View style={styles.backRow}><RoundButton icon="back" onPress={onBack} label="Back" /></View>}
-    <Image source={require('../../assets/brand/logo.png')} style={styles.logoImage} resizeMode="contain" accessibilityLabel="yizelearn" />
+    <BrandMark style={styles.logoImage} />
     <Text style={[font, styles.title]}>Welcome back</Text>
     <Text style={[font, styles.subtitle]}>Log in to manage your courses and students</Text>
 

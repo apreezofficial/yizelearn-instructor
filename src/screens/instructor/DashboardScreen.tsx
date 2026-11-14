@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Animated, Easing, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View} from 'react-native';
 import {dashboard} from '../../data/instructor';
-import {colors, radius, spacing, type, fonts} from '../../theme/tokens';
+import {colors, radius, resolveColor, spacing, type, fonts} from '../../theme/tokens';
 import {Avatar, font, IconBadge, Pill, Reveal, Row, SectionTitle, TabHeader} from './shared';
 
 type Props = {onGrading: () => void; onNotifications: () => void; onGradeItem: () => void};
@@ -38,6 +38,7 @@ export function Drift({style, range, duration}: {style: object; range: number; d
 
 /** Engagement chart: bars grow in one after another; tap a bar to see its count. */
 function EngagementChart() {
+  const scheme = useColorScheme();
   const data = dashboard.engagement;
   const max = Math.max(...data.map(d => d.value));
   const [selected, setSelected] = useState(data.findIndex(d => d.value === max));
@@ -68,7 +69,7 @@ function EngagementChart() {
         </Animated.View>}
         <Animated.View style={[styles.bar, {
           height: grow[i].interpolate({inputRange: [0, 1], outputRange: [0, target]}),
-          backgroundColor: active[i].interpolate({inputRange: [0, 1], outputRange: ['#C6DAF2', colors.blue700]}),
+          backgroundColor: active[i].interpolate({inputRange: [0, 1], outputRange: [resolveColor(colors.blue100, scheme), resolveColor(colors.blue700, scheme)]}),
         }]} />
         <Text style={[font, styles.barDay, i === selected && styles.barDayOn]}>{d.day}</Text>
       </Pressable>;

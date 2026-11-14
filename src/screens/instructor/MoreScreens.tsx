@@ -1,3 +1,4 @@
+import type {ColorValue} from 'react-native';
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {Icon, type IconName} from '../../components/Icon';
@@ -98,7 +99,7 @@ export function LiveSessionsScreen({onBack}: {onBack: () => void}) {
 
 const templates = ['Classic', 'Modern', 'Minimal'] as const;
 type Template = typeof templates[number];
-const templateLook: Record<Template, {border: string; bg: string; serif?: boolean}> = {
+const templateLook: Record<Template, {border: ColorValue; bg: ColorValue; serif?: boolean}> = {
   Classic: {border: colors.sky, bg: colors.white, serif: true},
   Modern: {border: colors.blue900, bg: '#F3F7FD'},
   Minimal: {border: colors.sandLine, bg: colors.white},

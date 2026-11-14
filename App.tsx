@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Alert, BackHandler, StatusBar, StyleSheet, View} from 'react-native';
+import {Alert, BackHandler, StatusBar, StyleSheet, useColorScheme, View} from 'react-native';
 import {initialWindowMetrics, SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {TabBar, type TabItem} from './src/components/Catalog';
 import {LaunchIntro} from './src/components/LaunchIntro';
@@ -128,7 +128,7 @@ function InstructorApp() {
 
   const showTabs = tabPages.includes(page);
   return <LaunchIntro><SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-    <StatusBar barStyle="dark-content" />
+    <StatusBar barStyle={useColorScheme() === 'dark' ? 'light-content' : 'dark-content'} />
     <View style={styles.app}>
       <ScreenTransition key={page}>{screen}</ScreenTransition>
       {showTabs && <TabBar items={tabs} active={page as Tab} onSelect={nav} />}
