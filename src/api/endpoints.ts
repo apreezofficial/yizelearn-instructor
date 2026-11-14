@@ -41,7 +41,13 @@ export type Money = {amountMinor: number; currency: string};
 export type PricingData = {price: Money | null; listPrice: Money | null; discount: {enabled: boolean; promoCode: string | null; percent: number | null; validUntil: string | null} | null};
 export type CourseBasics = {title: string; subtitle: string | null; summary: string | null; about: string | null};
 
+export type LiveRow = {id: string; title: string; startsAt: string; durationMin: number; status: string; capacity: number; bookedCount: number};
+
 export const instructorApi = {
+  announce: (courseId: string, title: string, body: string) => request<{id: string; recipientCount: number | null}>('/instructor/announcements', {method: 'POST', idempotent: true, body: {courseId, title, body}}),
+  liveSessions: () => request<Page<LiveRow>>('/instructor/live-sessions?limit=50'),
+  scheduleLive: (v: {title: string; startsAt: string; durationMin: number; capacity: number; courseId?: string | null}) => request<LiveRow>('/instructor/live-sessions', {method: 'POST', idempotent: true, body: {kind: 'general', provider: 'zoom', recordingEnabled: false, description: null, minAttendees: null, courseId: null, ...v}}),
+  liveJoinLink: (id: string) => request<{url?: string; joinUrl?: string}>(`/instructor/live-sessions/${id}/join-link`),
   setup: (courseId: string) => request<SetupData>(`/instructor/courses/${courseId}/setup`),
   checklist: (courseId: string) => request<Checklist>(`/instructor/courses/${courseId}/publish-checklist`),
   pricing: (courseId: string) => request<PricingData>(`/instructor/courses/${courseId}/pricing`),
